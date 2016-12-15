@@ -38,7 +38,7 @@
        </attribute>
        <layout class="QFormLayout" name="formLayout">
         <item row="0" column="0">
-         <widget class="QPushButton" name="initMapBtn">
+         <widget class="QPushButton" name="btnInitMap">
           <property name="minimumSize">
            <size>
             <width>90</width>
@@ -59,6 +59,43 @@
           </property>
           <property name="text">
            <string>Inicializar mapa</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="leMunicipio"/>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Municipio</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Polígono</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLineEdit" name="lePoligono"/>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Parcela</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QLineEdit" name="leParcela"/>
+        </item>
+        <item row="5" column="1">
+         <widget class="QPushButton" name="btnBuscar">
+          <property name="text">
+           <string>Buscar</string>
           </property>
          </widget>
         </item>

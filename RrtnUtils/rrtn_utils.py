@@ -20,7 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer
+from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer
 from qgis.gui import QgsMessageBar
 import urllib
 
@@ -192,7 +192,8 @@ class RrtnUtils:
 
         # disconnects
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
-        self.dockwidget.initMapBtn.clicked.disconnect(self.onInitMapBtnClick)
+        self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
+        self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscar)
 
         # remove this statement if dockwidget is to remain
         # for reuse if plugin is reopened
@@ -237,14 +238,15 @@ class RrtnUtils:
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
             # Signal handlers.
-            self.dockwidget.initMapBtn.clicked.connect(self.onInitMapBtnClick)
+            self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
+            self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscar)
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
         
-    def onInitMapBtnClick(self):
+    def onBtnInitMapClick(self):
         """Map initialization signal handler"""
 
         # Set the proper CRS for the RRTN.
@@ -267,26 +269,33 @@ class RrtnUtils:
         rlayer = QgsRasterLayer(uri, RRTN_WMS_LAYER_NAME, 'wms')
         if not rlayer.isValid():
 
-            self.iface.messageBar().pushMessage("Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA", QgsMessageBar.CRITICAL, 10)
+            self.iface.messageBar().pushMessage("Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
         else:
-            self.iface.messageBar().pushMessage("Entorno para el acceso al RRTN inicializado con éxito", QgsMessageBar.SUCCESS, 5)
+            self.iface.messageBar().pushMessage("Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
+        
+    def onBtnBuscar(self):
+        """Localizar una parcela catastral en el mapa """
+        codMunicipio = int(self.dockwidget.leMunicipio.text())
+        poligono = int(self.dockwidget.lePoligono.text())
+        parcela = int(self.dockwidget.leParcela.text())
 
-    
-    def cargarCapa():
-        #'service': 'WFS',
-        #'request': 'GetFeature',
-        # 'url': 'http://idena.navarra.es/ogc/wfs'
+        layer = self.cargarParcela(codMunicipio, poligono, parcela)
+        parcelaExtent = list(layer.getFeatures())[0]
+        print(parcelaExtent)
 
-        params = {
-            'restrictToRequestBBOX': '1',
-            'srsname': 'EPSG:25830',
-            'typename': 'IDENA:CATAST_Pol_ParcelaUrba',
-            'version': 'auto'
-            }
-    
-        uri = "http://idena.navarra.es/ogc/wfs?" + urllib.unquote(urllib.urlencode(params))
+        canvas = self.iface.mapCanvas()
+        #canvas.setExtent(parcelaExtent)
 
-' restrictToRequestBBOX=\'1\' srsname=\'EPSG:25830\' typename=\'IDENA:CATAST_Pol_ParcelaUrba\' url=\'http://idena.navarra.es/ogc/wfs\' version=\'auto\' table="" sql='
+    def cargarParcela(self, codMunicipio=907, poligono=2, parcela=413):
+        uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_ParcelaUrba url=http://idena.navarra.es/ogc/wfs version=auto sql=SELECT * FROM CATAST_Pol_ParcelaUrba WHERE CMUNICIPIO=%d AND POLIGONO=%d AND PARCELA=%d"
 
-' restrictToRequestBBOX=\'1\' srsname=\'EPSG:25830\' typename=\'IDENA:CATAST_Pol_ParcelaUrba\' url=\'http://idena.navarra.es/ogc/wfs\' version=\'auto\' table="" sql=SELECT * FROM CATAST_Pol_ParcelaUrba WHERE REFCAT=\'201010001\''
+        uri = uri % (codMunicipio, poligono, parcela)
+        
+        leyenda = "Parcela: %d, %d, %d" % (codMunicipio, poligono, parcela)
+
+        vlayer = QgsVectorLayer(uri, leyenda, "WFS")
+        QgsMapLayerRegistry.instance().addMapLayer(vlayer)
+
+        return vlayer
+
