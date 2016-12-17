@@ -20,7 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer
+from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle
 from qgis.gui import QgsMessageBar
 import urllib
 
@@ -281,13 +281,23 @@ class RrtnUtils:
         parcela = int(self.dockwidget.leParcela.text())
 
         layer = self.cargarParcela(codMunicipio, poligono, parcela)
-        parcelaExtent = list(layer.getFeatures())[0]
-        print(parcelaExtent)
+        parcela = list(layer.getFeatures())[0]
 
+        # Hago una copia de la extensión de la parcela para poderla ampliar.
+        parcelaExtent = QgsRectangle(parcela.geometry().boundingBox())
+        parcelaExtent.grow(2)
+        # Centrar el mapa sobre la parcela.
         canvas = self.iface.mapCanvas()
-        #canvas.setExtent(parcelaExtent)
+        canvas.setExtent(parcelaExtent)
 
-    def cargarParcela(self, codMunicipio=907, poligono=2, parcela=413):
+        layer.rendererV2().symbols()[0].setAlpha(0.5)
+        # Agregar al final ya que provoca refresco del mapa.
+        QgsMapLayerRegistry.instance().addMapLayer(layer)
+        # Esto evita alguna de las siguientes:
+        #layer.triggerRepaint() -> Investigar.
+        #canvas.refresh()
+
+    def cargarParcela(self, codMunicipio, poligono, parcela):
         uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_ParcelaUrba url=http://idena.navarra.es/ogc/wfs version=auto sql=SELECT * FROM CATAST_Pol_ParcelaUrba WHERE CMUNICIPIO=%d AND POLIGONO=%d AND PARCELA=%d"
 
         uri = uri % (codMunicipio, poligono, parcela)
@@ -295,7 +305,6 @@ class RrtnUtils:
         leyenda = "Parcela: %d, %d, %d" % (codMunicipio, poligono, parcela)
 
         vlayer = QgsVectorLayer(uri, leyenda, "WFS")
-        QgsMapLayerRegistry.instance().addMapLayer(vlayer)
 
         return vlayer
 
