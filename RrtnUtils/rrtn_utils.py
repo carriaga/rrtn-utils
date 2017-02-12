@@ -275,36 +275,57 @@ class RrtnUtils:
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
         
     def onBtnBuscar(self):
-        """Localizar una parcela catastral en el mapa """
-        codMunicipio = int(self.dockwidget.leMunicipio.text())
-        poligono = int(self.dockwidget.lePoligono.text())
-        parcela = int(self.dockwidget.leParcela.text())
+        try:
+            """Localizar una parcela catastral en el mapa """
+            codMunicipio = int(self.dockwidget.leMunicipio.text())
+            poligono = int(self.dockwidget.lePoligono.text())
+            parcela = int(self.dockwidget.leParcela.text())
 
-        layer = self.cargarParcela(codMunicipio, poligono, parcela)
-        parcela = list(layer.getFeatures())[0]
+            layer = self.cargarParcela(codMunicipio, poligono, parcela)
+            parcela = list(layer.getFeatures())[0]
 
-        # Hago una copia de la extensión de la parcela para poderla ampliar.
-        parcelaExtent = QgsRectangle(parcela.geometry().boundingBox())
-        parcelaExtent.grow(2)
-        # Centrar el mapa sobre la parcela.
-        canvas = self.iface.mapCanvas()
-        canvas.setExtent(parcelaExtent)
+            # Hago una copia de la extensión de la parcela para poderla ampliar.
+            parcelaExtent = QgsRectangle(parcela.geometry().boundingBox())
+            parcelaExtent.grow(2)
+            # Centrar el mapa sobre la parcela.
+            canvas = self.iface.mapCanvas()
+            canvas.setExtent(parcelaExtent)
 
-        layer.rendererV2().symbols()[0].setAlpha(0.5)
-        # Agregar al final ya que provoca refresco del mapa.
-        QgsMapLayerRegistry.instance().addMapLayer(layer)
-        # Esto evita alguna de las siguientes:
-        #layer.triggerRepaint() -> Investigar.
-        #canvas.refresh()
+            layer.rendererV2().symbols()[0].setAlpha(0.5)
+            # Agregar al final ya que provoca refresco del mapa.
+            QgsMapLayerRegistry.instance().addMapLayer(layer)
+            # Esto evita alguna de las siguientes:
+            #layer.triggerRepaint() -> Investigar.
+            #canvas.refresh()
+        except Exception as error:
+            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
 
     def cargarParcela(self, codMunicipio, poligono, parcela):
-        uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_ParcelaUrba url=http://idena.navarra.es/ogc/wfs version=auto sql=SELECT * FROM CATAST_Pol_ParcelaUrba WHERE CMUNICIPIO=%d AND POLIGONO=%d AND PARCELA=%d"
-
-        uri = uri % (codMunicipio, poligono, parcela)
-        
+        # Leyenda de la capa.
         leyenda = "Parcela: %d, %d, %d" % (codMunicipio, poligono, parcela)
 
+        # URL general
+        uri_template = "srsname=EPSG:25830 typename=IDENA:%s url=http://idena.navarra.es/ogc/wfs version=auto sql=SELECT * FROM %s WHERE CMUNICIPIO=%d AND POLIGONO=%d AND PARCELA=%d"
+
+        # Búsqueda en parcelas urbanas
+        featureName = "CATAST_Pol_ParcelaUrba"
+        uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
         vlayer = QgsVectorLayer(uri, leyenda, "WFS")
 
-        return vlayer
+        if vlayer.featureCount() != 1:
+            # Búsqueda en rústicas (201, 1, 1900).
+            featureName = "CATAST_Pol_ParcelaRusti"
+            uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
+            vlayer = QgsVectorLayer(uri, leyenda, "WFS")
 
+            if vlayer.featureCount() != 1:
+                # Búsqueda en mixtas (201, 1, 1088).
+                featureName = "CATAST_Pol_ParcelaMixta"
+                uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
+                vlayer = QgsVectorLayer(uri, leyenda, "WFS")
+
+                if vlayer.featureCount() != 1:
+                    raise Exception(leyenda + ", NO ENCONTRADA.")
+        
+        return vlayer
+            
