@@ -256,14 +256,14 @@ class RrtnUtils:
 
         # Load IDENA cadastral WMS layer.
         params = {
-            'layers': 'IDENA:catastro',
+            'layers': 'catastro',             # 14/10/2017: antes era 'IDENA:catastro'.
             'styles': '',
             'format': 'image/png',
             'crs': 'EPSG:25830',
             'dpiMode': '7',
             'url': 'http://idena.navarra.es/ogc/wms'
             }
-        
+
         uri = urllib.unquote(urllib.urlencode(params))
 
         rlayer = QgsRasterLayer(uri, RRTN_WMS_LAYER_NAME, 'wms')

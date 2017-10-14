@@ -2,6 +2,9 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## To do list
+1. Cambiar la llamada WFS en una única llamada.
+2. Listado de municipios.
+
 - Botón para eliminar todas las capas vectoriales de parcela cargada.
 - Alternativa: copiar a capa en memoria la parcela seleccionada...
 - Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
