@@ -19,17 +19,3 @@ Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://
     - Cargar lista de municipios en un combo en un hilo aparte tras mostrar plugin.
 
 - Capa de parcelas en memoria.
-
-## Ayudas para debuggear
-```
-import inspect
-inspect.getmembers(layer)
-dir(layer)
-k for k in dir(layer) if "url" in k.lower()]
-```
-Guardar un dato en 'iface':
-```
-self.iface.datos = error
-```
-
-Desde la consola accedemos a _iface.datos_ directamente.

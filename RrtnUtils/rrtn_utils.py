@@ -38,6 +38,7 @@ RRTN_CRS = 'EPSG:25830'
 # Legend layer name
 RRTN_WMS_LAYER_NAME = "RRTN @ WMS IDENA"
 
+
 class RrtnUtils:
     """QGIS Plugin Implementation."""
 
@@ -76,11 +77,10 @@ class RrtnUtils:
         # self.toolbar = self.iface.addToolBar(u'RrtnUtils')
         # self.toolbar.setObjectName(u'RrtnUtils')
 
-        #print "** INITIALIZING RrtnUtils"
+        # print "** INITIALIZING RrtnUtils"
 
         self.pluginIsActive = False
         self.dockwidget = None
-
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -97,18 +97,17 @@ class RrtnUtils:
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('RrtnUtils', message)
 
-
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            add_to_menu=True,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -173,7 +172,6 @@ class RrtnUtils:
 
         return action
 
-
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
         icon_path = ':/plugins/RrtnUtils/icon.png'
@@ -188,7 +186,7 @@ class RrtnUtils:
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
 
-        #print "** CLOSING RrtnUtils"
+        # print "** CLOSING RrtnUtils"
 
         # disconnects
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
@@ -203,11 +201,10 @@ class RrtnUtils:
 
         self.pluginIsActive = False
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
 
-        #print "** UNLOAD RrtnUtils"
+        # print "** UNLOAD RrtnUtils"
 
         for action in self.actions:
             self.iface.removePluginWebMenu(
@@ -225,7 +222,7 @@ class RrtnUtils:
         if not self.pluginIsActive:
             self.pluginIsActive = True
 
-            #print "** STARTING RrtnUtils"
+            # print "** STARTING RrtnUtils"
 
             # dockwidget may not exist if:
             #    first run of plugin
@@ -245,7 +242,7 @@ class RrtnUtils:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
-        
+
     def onBtnInitMapClick(self):
         """Map initialization signal handler"""
 
@@ -256,24 +253,27 @@ class RrtnUtils:
 
         # Load IDENA cadastral WMS layer.
         params = {
-            'layers': 'catastro',             # 14/10/2017: antes era 'IDENA:catastro'.
+            # 14/10/2017: antes era 'IDENA:catastro'.
+            'layers': 'catastro',
             'styles': '',
             'format': 'image/png',
             'crs': 'EPSG:25830',
             'dpiMode': '7',
             'url': 'http://idena.navarra.es/ogc/wms'
-            }
+        }
 
         uri = urllib.unquote(urllib.urlencode(params))
 
         rlayer = QgsRasterLayer(uri, RRTN_WMS_LAYER_NAME, 'wms')
         if not rlayer.isValid():
 
-            self.iface.messageBar().pushMessage("Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
+            self.iface.messageBar().pushMessage(
+                "Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
         else:
-            self.iface.messageBar().pushMessage("Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
+            self.iface.messageBar().pushMessage(
+                "Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
-        
+
     def onBtnBuscar(self):
         try:
             """Localizar una parcela catastral en el mapa """
@@ -281,8 +281,7 @@ class RrtnUtils:
             poligono = int(self.dockwidget.lePoligono.text())
             parcela = int(self.dockwidget.leParcela.text())
 
-            layer = self.cargarParcela(codMunicipio, poligono, parcela)
-            parcela = list(layer.getFeatures())[0]
+            (layer, parcela) = self.cargarParcela(codMunicipio, poligono, parcela)
 
             # Hago una copia de la extensión de la parcela para poderla ampliar.
             parcelaExtent = QgsRectangle(parcela.geometry().boundingBox())
@@ -295,37 +294,41 @@ class RrtnUtils:
             # Agregar al final ya que provoca refresco del mapa.
             QgsMapLayerRegistry.instance().addMapLayer(layer)
             # Esto evita alguna de las siguientes:
-            #layer.triggerRepaint() -> Investigar.
-            #canvas.refresh()
+            # layer.triggerRepaint() -> Investigar.
+            # canvas.refresh()
         except Exception as error:
             self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
 
     def cargarParcela(self, codMunicipio, poligono, parcela):
         # Leyenda de la capa.
-        leyenda = "Parcela: %d, %d, %d" % (codMunicipio, poligono, parcela)
+        leyenda = "Parcela: {0}, {1}, {2}".format(
+            codMunicipio, poligono, parcela)
 
         # URL general
-        uri_template = "srsname=EPSG:25830 typename=IDENA:%s url=http://idena.navarra.es/ogc/wfs version=auto sql=SELECT * FROM %s WHERE CMUNICIPIO=%d AND POLIGONO=%d AND PARCELA=%d"
+        uri_template = "srsname=EPSG:25830 typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
+        uri_template += " sql=SELECT * FROM {0} WHERE "
+        uri_template += "CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}".format(
+            codMunicipio, poligono, parcela)
 
         # Búsqueda en parcelas urbanas
-        featureName = "CATAST_Pol_ParcelaUrba"
-        uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
+        uri = uri_template.format("CATAST_Pol_ParcelaUrba")
         vlayer = QgsVectorLayer(uri, leyenda, "WFS")
+        # En vez de llamar a featureCount tratamos de obtener la feature. Evitamos un acceso WFS.
+        features = list(vlayer.getFeatures())
 
-        if vlayer.featureCount() != 1:
-            # Búsqueda en rústicas (201, 1, 1900).
-            featureName = "CATAST_Pol_ParcelaRusti"
-            uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
+        if len(features) != 1:
+            # Búsqueda en rústicas (201, 6, 1838).
+            uri = uri_template.format("CATAST_Pol_ParcelaRusti")
             vlayer = QgsVectorLayer(uri, leyenda, "WFS")
+            features = list(vlayer.getFeatures())
 
-            if vlayer.featureCount() != 1:
-                # Búsqueda en mixtas (201, 1, 1088).
-                featureName = "CATAST_Pol_ParcelaMixta"
-                uri = uri_template % (featureName, featureName, codMunicipio, poligono, parcela)
+            if len(features) != 1:
+                # Búsqueda en mixtas (201, 6, 1089).
+                uri = uri_template.format("CATAST_Pol_ParcelaMixta")
                 vlayer = QgsVectorLayer(uri, leyenda, "WFS")
+                features = list(vlayer.getFeatures())
 
-                if vlayer.featureCount() != 1:
+                if len(features) != 1:
                     raise Exception(leyenda + ", NO ENCONTRADA.")
-        
-        return vlayer
-            
+
+        return (vlayer, features[0])
