@@ -306,8 +306,7 @@ class RrtnUtils:
 
         # URL general
         uri_template = "srsname=EPSG:25830 typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
-        uri_template += " sql=SELECT * FROM {0} WHERE "
-        uri_template += "CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}".format(
+        uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
             codMunicipio, poligono, parcela)
 
         # Búsqueda en parcelas urbanas
