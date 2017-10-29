@@ -20,8 +20,10 @@ Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://
 
 - Capa de parcelas en memoria.
 
-## Done
-1. Cambiar la llamada WFS en una única llamada: finalmente no, ya que QgsVectorLayer no está preparado para acceder simultáneamente a varias capas (typenames).
+## Change log
+2017/10/29: obtener la lista de municipios de Navarra para presentarla en un ComboBox. Así se permite seleccionar un municipio por nombre o teclear el código de municipio a la hora de realizar una búsqueda de parcela.
+
+2017/10/15: Cambiar la llamada WFS en una única llamada: finalmente no, ya que QgsVectorLayer no está preparado para acceder simultáneamente a varias capas (typenames).
 
 Al agregar la capa WFS se produce una llamada _DescribeFeatureType_.
 Se ha reducido el total de llamadas a 2, evitando llamar a _featureCount_.

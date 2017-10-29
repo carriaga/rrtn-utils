@@ -38,6 +38,8 @@ RRTN_CRS = 'EPSG:25830'
 # Legend layer name
 RRTN_WMS_LAYER_NAME = "RRTN @ WMS IDENA"
 
+# Eliminar acentos (Python 2.7)
+import unicodedata
 
 class RrtnUtils:
     """QGIS Plugin Implementation."""
@@ -52,6 +54,9 @@ class RrtnUtils:
         """
         # Save reference to the QGIS interface
         self.iface = iface
+
+        # Get plugin accesible for debug purposes.
+        #iface.rrtnPlugin = self
 
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
@@ -238,10 +243,30 @@ class RrtnUtils:
             self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
             self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscar)
 
+            # Cargar ComboBox de municipios.
+            for feature in self.datosMunicipios():
+                # Añadir nombres de municipios sin acentos y en mayúsculas.
+                # import unicodedata
+                self.dockwidget.cmbMunicipios.addItem(
+                    unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper()
+                    , feature["CMUNICIPIO"])
+
             # show the dockwidget
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+
+    def datosMunicipios(self):
+        """ Obtener la lista de municipios de Navarra """
+
+        # Esta uri no permite controlar la proyección de campos.
+        #uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_Municipio url=http://idena.navarra.es/ogc/wfs version=2.0.0 sql=SELECT CMUNICIPIO,MUNICIPIO FROM CATAST_Pol_Municipio"
+        
+        # De esta manera obtenemos únicamente los dos campos necesarios.
+        uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname=CMUNICIPIO,MUNICIPIO"
+        layer = QgsVectorLayer(uri, "data", "WFS")
+
+        return list(layer.getFeatures())
 
     def onBtnInitMapClick(self):
         """Map initialization signal handler"""
@@ -275,9 +300,26 @@ class RrtnUtils:
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
 
     def onBtnBuscar(self):
+        """Localizar una parcela catastral en el mapa """
+
         try:
-            """Localizar una parcela catastral en el mapa """
-            codMunicipio = int(self.dockwidget.leMunicipio.text())
+            # Obtener el código de municipio.
+            muniText = self.dockwidget.cmbMunicipios.currentText()
+
+            # Si se ha introducido un número tratamos de usarlo como código de municipio.
+            if muniText.isdigit():
+                codMunicipio = int(muniText)
+            else:
+                idx = self.dockwidget.cmbMunicipios.currentIndex()
+                idxText = self.dockwidget.cmbMunicipios.itemText(idx)
+
+                # Comprobar si el texto coincide con el valor de la selección actual del combo.
+                if muniText == idxText:
+                    codMunicipio = self.dockwidget.cmbMunicipios.itemData(idx)
+                else:
+                    return
+
+            # Obtener polígono y parcela.
             poligono = int(self.dockwidget.lePoligono.text())
             parcela = int(self.dockwidget.leParcela.text())
 
@@ -297,7 +339,8 @@ class RrtnUtils:
             # layer.triggerRepaint() -> Investigar.
             # canvas.refresh()
         except Exception as error:
-            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
+            leyenda = muniText + ", {0}, {1}".format(poligono, parcela)
+            self.iface.messageBar().pushMessage(error.message + " (" + leyenda + ")", QgsMessageBar.WARNING, 6)
 
     def cargarParcela(self, codMunicipio, poligono, parcela):
         # Leyenda de la capa.
@@ -328,6 +371,6 @@ class RrtnUtils:
                 features = list(vlayer.getFeatures())
 
                 if len(features) != 1:
-                    raise Exception(leyenda + ", NO ENCONTRADA.")
+                    raise Exception("PARCELA NO ENCONTRADA")
 
         return (vlayer, features[0])
