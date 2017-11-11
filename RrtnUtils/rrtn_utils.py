@@ -20,12 +20,13 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle
-from qgis.gui import QgsMessageBar
+from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature
+from qgis.gui import QgsMessageBar, QgsRubberBand
+
 import urllib
 
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt
-from PyQt4.QtGui import QAction, QIcon
+from PyQt4.QtGui import QAction, QIcon, QColor
 # Initialize Qt resources from file resources.py
 import resources
 
@@ -41,6 +42,7 @@ RRTN_WMS_LAYER_NAME = "RRTN @ WMS IDENA"
 # Eliminar acentos (Python 2.7)
 import unicodedata
 
+
 class RrtnUtils:
     """QGIS Plugin Implementation."""
 
@@ -55,7 +57,7 @@ class RrtnUtils:
         # Save reference to the QGIS interface
         self.iface = iface
 
-        # Get plugin accesible for debug purposes.
+        # Get plugin accesible for @DEBUG purposes.
         #iface.rrtnPlugin = self
 
         # initialize plugin directory
@@ -197,6 +199,9 @@ class RrtnUtils:
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
         self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
         self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscar)
+        btnDraw = [x for x in self.iface.mapNavToolToolBar(
+        ).actions() if x.objectName() == 'mActionDraw'][0]
+        btnDraw.triggered.disconnect(self.onActionDraw)
 
         # remove this statement if dockwidget is to remain
         # for reuse if plugin is reopened
@@ -242,14 +247,22 @@ class RrtnUtils:
             # Signal handlers.
             self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
             self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscar)
+            # Capturar la pulsación del botón refrescar.
+            btnDraw = [x for x in self.iface.mapNavToolToolBar(
+            ).actions() if x.objectName() == 'mActionDraw'][0]
+            btnDraw.triggered.connect(self.onActionDraw)
 
-            # Cargar ComboBox de municipios.
-            for feature in self.datosMunicipios():
-                # Añadir nombres de municipios sin acentos y en mayúsculas.
-                # import unicodedata
-                self.dockwidget.cmbMunicipios.addItem(
-                    unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper()
-                    , feature["CMUNICIPIO"])
+            # Cargar ComboBox de municipios si no está ya cargado.
+            if self.dockwidget.cmbMunicipios.count() == 0:
+                for feature in self.datosMunicipios():
+                    # Añadir nombres de municipios sin acentos y en mayúsculas.
+                    # import unicodedata
+                    # HorizontalPolicy: Ignored -> evitar que se expanda todo al ancho del texto de municipio más largo.
+                    self.dockwidget.cmbMunicipios.addItem(
+                        unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper(), feature["CMUNICIPIO"])
+
+            # Lista de parcelas seleccionadas.
+            self.parcelasResaltadas = list()
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
@@ -261,28 +274,27 @@ class RrtnUtils:
 
         # Esta uri no permite controlar la proyección de campos.
         #uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_Municipio url=http://idena.navarra.es/ogc/wfs version=2.0.0 sql=SELECT CMUNICIPIO,MUNICIPIO FROM CATAST_Pol_Municipio"
-        
+
         # De esta manera obtenemos únicamente los dos campos necesarios.
         uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname=CMUNICIPIO,MUNICIPIO"
         layer = QgsVectorLayer(uri, "data", "WFS")
 
         return list(layer.getFeatures())
 
-    def onBtnInitMapClick(self):
-        """Map initialization signal handler"""
+    def inicializarMapa(self):
+        # Fijar el SRS necesario para el RRTN.
 
-        # Set the proper CRS for the RRTN.
         canvas = self.iface.mapCanvas()
         crs = QgsCoordinateReferenceSystem(RRTN_CRS)
         canvas.setDestinationCrs(crs)
 
-        # Load IDENA cadastral WMS layer.
+        # Cargar WMS Catastro de IDENA.
         params = {
             # 14/10/2017: antes era 'IDENA:catastro'.
             'layers': 'catastro',
             'styles': '',
             'format': 'image/png',
-            'crs': 'EPSG:25830',
+            'crs': RRTN_CRS,
             'dpiMode': '7',
             'url': 'http://idena.navarra.es/ogc/wms'
         }
@@ -299,10 +311,38 @@ class RrtnUtils:
                 "Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
 
+
+    def onBtnInitMapClick(self):
+        """Map initialization signal handler"""
+        self.inicializarMapa()
+
+
+    def limpiarSeleccion(self):
+        """
+        Eliminar los elementos para la selección de parcelas (resaltado).
+        """
+
+        canvas = self.iface.mapCanvas()
+
+        for r in self.parcelasResaltadas:
+            canvas.scene().removeItem(r)
+        
+        del self.parcelasResaltadas[:]
+
+    def onActionDraw(self):
+        """ Captura del botón Refresh para borrar la lista de seleccionadas """
+        self.limpiarSeleccion()
+
     def onBtnBuscar(self):
         """Localizar una parcela catastral en el mapa """
 
         try:
+            canvas = self.iface.mapCanvas()
+
+            # Comprobar que se ha abierto un mapa.
+            if canvas.isHidden():
+                raise Exception("NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
+
             # Obtener el código de municipio.
             muniText = self.dockwidget.cmbMunicipios.currentText()
 
@@ -319,36 +359,44 @@ class RrtnUtils:
                 else:
                     return
 
-            # Obtener polígono y parcela.
+            # Obtener la referencia catastral de la UI.
             poligono = int(self.dockwidget.lePoligono.text())
             parcela = int(self.dockwidget.leParcela.text())
 
-            (layer, parcela) = self.cargarParcela(codMunicipio, poligono, parcela)
+            (selectedLayer, parcelaFeature) = self.cargarParcela(
+                codMunicipio, poligono, parcela, muniText)
+            parcelaGeom = parcelaFeature.geometry()
 
-            # Hago una copia de la extensión de la parcela para poderla ampliar.
-            parcelaExtent = QgsRectangle(parcela.geometry().boundingBox())
+            # Crear un resaltado para la parcela seleccionada.
+            # import QgsRubberBand
+            # Eliminar resaltados anteriores.
+            self.limpiarSeleccion()
+            r = QgsRubberBand(canvas, True)  # True = a polygon
+            r.setToGeometry(parcelaGeom, selectedLayer) # Se le indica la capa de la que tomar el SRS.
+            r.setColor(QColor(255, 0, 0))
+            r.setFillColor(QColor(255, 0, 0, 63)) # 63 -> Alpha usado por QgsHighlight.
+            r.setWidth(2)
+            self.parcelasResaltadas.append(r)
+
+            # Copiar la extensión de la parcela para poderla ampliar.
+            parcelaExtent = QgsRectangle(parcelaGeom.boundingBox())
             parcelaExtent.grow(2)
-            # Centrar el mapa sobre la parcela.
-            canvas = self.iface.mapCanvas()
+
             canvas.setExtent(parcelaExtent)
+            canvas.refresh()
 
-            layer.rendererV2().symbols()[0].setAlpha(0.5)
-            # Agregar al final ya que provoca refresco del mapa.
-            QgsMapLayerRegistry.instance().addMapLayer(layer)
-            # Esto evita alguna de las siguientes:
-            # layer.triggerRepaint() -> Investigar.
-            # canvas.refresh()
         except Exception as error:
-            leyenda = muniText + ", {0}, {1}".format(poligono, parcela)
-            self.iface.messageBar().pushMessage(error.message + " (" + leyenda + ")", QgsMessageBar.WARNING, 6)
+            self.iface.messageBar().pushMessage(
+                error.message, QgsMessageBar.WARNING, 6)
 
-    def cargarParcela(self, codMunicipio, poligono, parcela):
+    def cargarParcela(self, codMunicipio, poligono, parcela, muniText):
         # Leyenda de la capa.
         leyenda = "Parcela: {0}, {1}, {2}".format(
             codMunicipio, poligono, parcela)
 
         # URL general
-        uri_template = "srsname=EPSG:25830 typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
+        uri_template = "srsname=" + RRTN_CRS + \
+            " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
         uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
             codMunicipio, poligono, parcela)
 
@@ -371,6 +419,6 @@ class RrtnUtils:
                 features = list(vlayer.getFeatures())
 
                 if len(features) != 1:
-                    raise Exception("PARCELA NO ENCONTRADA")
+                    raise Exception("PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(muniText, poligono, parcela))
 
         return (vlayer, features[0])
