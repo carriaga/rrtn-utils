@@ -81,7 +81,8 @@ The url can be a HTTP url to a WFS server (legacy, e.g. http://foobar/wfs?TYPENA
 * IgnoreAxisOrientation=1: to ignore EPSG axis order for WFS 1.1 or 2.0 
 * InvertAxisOrientation=1: to invert axis order 
 * hideDownloadProgressDialog=1: to hide the download progress dialog
-* ```
+* 
+```
 
 ## Resultados comparativas WFS IDENA
 Se comprueba que la búsqueda por los campos CMUNICIPIO, POLIGONO, PARCELA, es **hasta tres veces** más rápida que la búsqueda por REFCAT.
