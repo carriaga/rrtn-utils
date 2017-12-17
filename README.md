@@ -7,7 +7,20 @@ Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://
 - Cargar WMS Catastro como check. Pestaña general. Pasarlo a la zona de abajo: "cargar WMS al entrar". Que recuerde el estado de la última ejecución...
 - Check (marcar todas).
 
-2. Plantear funcionamiento capa edición y ver interés de usar **QgsFeatureRequest** para obtener features en memoria y copiar a capa virtual.
+2. Plantear funcionamiento capa edición.
+- Opción de crear un "proyecto" que en realidad sería una nueva capa de parcelas en memoria que quedaría vinculada al plugin. Se podría pedir el nombre de la capa. Si pulsa el botón se avisa y elimina la capa actual.
+- Configurar etiquetado por referencia catastral y activar por defecto.
+- Hay que proteger la eliminación de esa capa desde la ToC.
+- Posibilidad de poner editores con valores cerrados.
+- Exportar a GML Navarra: 
+    - Opción de sólo la parcela seleccionada.
+    - Verificación de atributos.
+    - Mensaje de resumen de identificadores y superficies a exportar.
+- Importar GML CP RRTN.
+- Agregar la parcela localizada en la búsqueda.
+- Asistente para parcelas de otras capas que reconozca atributos necesarios.
+- Ver interés de usar **QgsFeatureRequest** para obtener features en memoria y copiar a capa virtual.
+- Mantener el campo Superficie actualizado.
 
 - Compatibilidad con la última LTE (urls servicios WMS y WFS). Revisar valores constantes.
 - Resaltar parcela vía WMS: son tres capas...
@@ -16,9 +29,9 @@ Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://
     - Habilitar sólo si CRS Navarra y municipios cargados.
     - Cargar lista de municipios en un combo en un hilo aparte tras mostrar plugin.
 
-- Capa de parcelas en memoria.
-
 ## Change log
+2017/12/17: corregido error en mensajes de error con acentos poniendo el prefijo _u_ en las cadenas de texto. Nuevo botón para la creación de una capa de trabajo en memoria (para parcelas).
+
 2017/11/11: el resaltado de la parcela localizada se hace mediante QgsRubberBand (sin necesidad de agregar capas a la layenda). El resaltado se mantiene mientras no se localice otra o se realice la acción **Refresh**.
 
 La localización de parcelas controla que haya un mapa cargado, de lo contrario no se hace y se avisa al usuario.

@@ -37,7 +37,7 @@ import os.path
 # CRS for the RRTN
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
-RRTN_WMS_LAYER_NAME = "RRTN @ WMS IDENA"
+RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
 
 # Eliminar acentos (Python 2.7)
 import unicodedata
@@ -198,7 +198,8 @@ class RrtnUtils:
         # disconnects
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
         self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
-        self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscar)
+        self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscarClick)
+        self.dockwidget.btnInitWorkingLayer.clicked.disconnect(self.onBtnInitWorkingLayerClick)
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
@@ -246,7 +247,8 @@ class RrtnUtils:
 
             # Signal handlers.
             self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
-            self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscar)
+            self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscarClick)
+            self.dockwidget.btnInitWorkingLayer.clicked.connect(self.onBtnInitWorkingLayerClick)
             # Capturar la pulsación del botón refrescar.
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
             ).actions() if x.objectName() == 'mActionDraw'][0]
@@ -305,10 +307,10 @@ class RrtnUtils:
         if not rlayer.isValid():
 
             self.iface.messageBar().pushMessage(
-                "Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
+                u"Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
         else:
             self.iface.messageBar().pushMessage(
-                "Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
+                u"Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
 
 
@@ -333,7 +335,17 @@ class RrtnUtils:
         """ Captura del botón Refresh para borrar la lista de seleccionadas """
         self.limpiarSeleccion()
 
-    def onBtnBuscar(self):
+    def onBtnInitWorkingLayerClick(self):
+        """Crear una nueva capa de trabajo para la edición de parcelas"""
+
+        if not hasattr(self, "workingLyr"):
+            self.workingLyr = QgsVectorLayer('Polygon?crs=epsg:25830&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', u"Parcelas actuación" , 'memory')
+            self.workingLyr.isValid()
+            QgsMapLayerRegistry.instance().addMapLayer(self.workingLyr)
+        else:
+            print("Ya creado")
+
+    def onBtnBuscarClick(self):
         """Localizar una parcela catastral en el mapa """
 
         try:
@@ -341,7 +353,7 @@ class RrtnUtils:
 
             # Comprobar que se ha abierto un mapa.
             if canvas.isHidden():
-                raise Exception("NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
+                raise Exception(u"NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
 
             # Obtener el código de municipio.
             muniText = self.dockwidget.cmbMunicipios.currentText()
@@ -391,7 +403,7 @@ class RrtnUtils:
 
     def cargarParcela(self, codMunicipio, poligono, parcela, muniText):
         # Leyenda de la capa.
-        leyenda = "Parcela: {0}, {1}, {2}".format(
+        leyenda = u"Parcela: {0}, {1}, {2}".format(
             codMunicipio, poligono, parcela)
 
         # URL general
@@ -419,6 +431,6 @@ class RrtnUtils:
                 features = list(vlayer.getFeatures())
 
                 if len(features) != 1:
-                    raise Exception("PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(muniText, poligono, parcela))
+                    raise Exception(u"PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(muniText, poligono, parcela))
 
         return (vlayer, features[0])

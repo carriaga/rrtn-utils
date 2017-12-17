@@ -65,14 +65,14 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
+        <item row="1" column="0">
          <widget class="QLabel" name="label">
           <property name="text">
            <string>Municipio</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
+        <item row="1" column="1">
          <widget class="QComboBox" name="cmbMunicipios">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
@@ -85,14 +85,14 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="0">
+        <item row="2" column="0">
          <widget class="QLabel" name="label_2">
           <property name="text">
            <string>Polígono</string>
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
+        <item row="2" column="1">
          <widget class="QLineEdit" name="lePoligono">
           <property name="maximumSize">
            <size>
@@ -105,14 +105,14 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="0">
+        <item row="3" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
            <string>Parcela</string>
           </property>
          </widget>
         </item>
-        <item row="4" column="1">
+        <item row="3" column="1">
          <widget class="QLineEdit" name="leParcela">
           <property name="maximumSize">
            <size>
@@ -125,10 +125,29 @@
           </property>
          </widget>
         </item>
-        <item row="6" column="1">
+        <item row="5" column="1">
          <widget class="QPushButton" name="btnBuscar">
           <property name="text">
            <string>Buscar</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="btnInitWorkingLayer">
+          <property name="minimumSize">
+           <size>
+            <width>120</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>120</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Nueva capa trabajo</string>
           </property>
          </widget>
         </item>
@@ -142,6 +161,7 @@
  <tabstops>
   <tabstop>tabWidget</tabstop>
   <tabstop>btnInitMap</tabstop>
+  <tabstop>btnInitWorkingLayer</tabstop>
   <tabstop>cmbMunicipios</tabstop>
   <tabstop>lePoligono</tabstop>
   <tabstop>leParcela</tabstop>
