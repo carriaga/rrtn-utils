@@ -35,6 +35,11 @@ Directorio destino: *%HOMEPATH%\.qgis2\python\plugins*
 
 Hay que copiar el directorio completo.
 
+#### Regenerar icono
+https://gis.stackexchange.com/questions/162707/when-i-change-a-qgis-plugins-icon-why-doesnt-it-change-in-the-menu-toolbar
+
+Volver a invocar la instrucción anterior (pyrcc4).
+
 ### Si tenemos gmake (GNU make)
 *make deploy*
 

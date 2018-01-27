@@ -20,13 +20,13 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature
+from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter
 from qgis.gui import QgsMessageBar, QgsRubberBand
 
 import urllib
 
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt
-from PyQt4.QtGui import QAction, QIcon, QColor
+from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox
 # Initialize Qt resources from file resources.py
 import resources
 
@@ -199,7 +199,8 @@ class RrtnUtils:
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
         self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
         self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscarClick)
-        self.dockwidget.btnInitWorkingLayer.clicked.disconnect(self.onBtnInitWorkingLayerClick)
+        self.dockwidget.btnInitWorkingLayer.clicked.disconnect(
+            self.onBtnInitWorkingLayerClick)
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
@@ -216,6 +217,9 @@ class RrtnUtils:
         """Removes the plugin menu item and icon from QGIS GUI."""
 
         # print "** UNLOAD RrtnUtils"
+
+        # Limpiar la selección del mapa.
+        self.limpiarSeleccion()
 
         for action in self.actions:
             self.iface.removePluginWebMenu(
@@ -248,7 +252,8 @@ class RrtnUtils:
             # Signal handlers.
             self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
             self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscarClick)
-            self.dockwidget.btnInitWorkingLayer.clicked.connect(self.onBtnInitWorkingLayerClick)
+            self.dockwidget.btnInitWorkingLayer.clicked.connect(
+                self.onBtnInitWorkingLayerClick)
             # Capturar la pulsación del botón refrescar.
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
             ).actions() if x.objectName() == 'mActionDraw'][0]
@@ -265,6 +270,10 @@ class RrtnUtils:
 
             # Lista de parcelas seleccionadas.
             self.parcelasResaltadas = list()
+
+            # Ruta base del usuario para salvar archivos.
+            self.userDir = "~"
+            #self.userDir = "c:/tmp"
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
@@ -313,23 +322,21 @@ class RrtnUtils:
                 u"Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
 
-
     def onBtnInitMapClick(self):
         """Map initialization signal handler"""
         self.inicializarMapa()
-
 
     def limpiarSeleccion(self):
         """
         Eliminar los elementos para la selección de parcelas (resaltado).
         """
+        if hasattr(self, "parcelasResaltadas"):
+            canvas = self.iface.mapCanvas()
 
-        canvas = self.iface.mapCanvas()
+            for r in self.parcelasResaltadas:
+                canvas.scene().removeItem(r)
 
-        for r in self.parcelasResaltadas:
-            canvas.scene().removeItem(r)
-        
-        del self.parcelasResaltadas[:]
+            del self.parcelasResaltadas[:]
 
     def onActionDraw(self):
         """ Captura del botón Refresh para borrar la lista de seleccionadas """
@@ -338,12 +345,58 @@ class RrtnUtils:
     def onBtnInitWorkingLayerClick(self):
         """Crear una nueva capa de trabajo para la edición de parcelas"""
 
-        if not hasattr(self, "workingLyr"):
-            self.workingLyr = QgsVectorLayer('Polygon?crs=epsg:25830&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', u"Parcelas actuación" , 'memory')
-            self.workingLyr.isValid()
-            QgsMapLayerRegistry.instance().addMapLayer(self.workingLyr)
-        else:
-            print("Ya creado")
+        try:
+            fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
+                self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")
+
+            if fileName == "":
+                return
+
+            # Almacenar el directorio seleccionado para la próxima vez.
+            self.userDir = os.path.dirname(fileName)
+
+            # Comprobar si está intentando sustituir a un archivo ya cargado.
+            layersToRemove = list()
+            for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+                if fileName == layer.dataProvider().dataSourceUri().split('|')[0]:
+                    layersToRemove.append(layer)
+
+            if len(layersToRemove) > 0:
+                reply = QMessageBox.question(self.dockwidget, u"Aviso", 
+                 u"El fichero seleccionado se encuentra entre las capas cargadas y éstas serán sustituidas si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
+
+                if reply == QMessageBox.Yes:
+                    # Descargar las capas cargadas.
+                    for layer in layersToRemove:
+                        QgsMapLayerRegistry.instance().removeMapLayer(layer)
+                else:
+                    # Salir sin cargar.
+                    return
+
+            templateLayer = QgsVectorLayer(
+                'Polygon?crs=' + RRTN_CRS + '&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', u"Parcelas actuación", 'memory')
+            provider = templateLayer.dataProvider()
+
+            # Crear una archivo shape con la estructura de la plantilla. Nota: machaca el fichero existente.
+            error = QgsVectorFileWriter.writeAsVectorFormat(
+                templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")
+
+            if error != QgsVectorFileWriter.NoError:
+                raise Exception(u"Error al crear el fichero {0}.".format(fileName))
+
+            # Cargar el nuevo archivo en el mapa.
+            vlayer = QgsVectorLayer(fileName, u"Parcelas actuación", "ogr")
+
+            if not vlayer.isValid():
+                raise Exception(u"Error al crear el fichero {0}.".format(fileName))
+
+            # Conservar como nueca capa de trabajo y añadir a la ToC.
+            self.workingLayer = vlayer
+            self.workingLayer.startEditing()
+            QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
+
+        except Exception as error:
+            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.CRITICAL, 10)
 
     def onBtnBuscarClick(self):
         """Localizar una parcela catastral en el mapa """
@@ -353,7 +406,8 @@ class RrtnUtils:
 
             # Comprobar que se ha abierto un mapa.
             if canvas.isHidden():
-                raise Exception(u"NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
+                raise Exception(
+                    u"NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
 
             # Obtener el código de municipio.
             muniText = self.dockwidget.cmbMunicipios.currentText()
@@ -384,9 +438,11 @@ class RrtnUtils:
             # Eliminar resaltados anteriores.
             self.limpiarSeleccion()
             r = QgsRubberBand(canvas, True)  # True = a polygon
-            r.setToGeometry(parcelaGeom, selectedLayer) # Se le indica la capa de la que tomar el SRS.
+            # Se le indica la capa de la que tomar el SRS.
+            r.setToGeometry(parcelaGeom, selectedLayer)
             r.setColor(QColor(255, 0, 0))
-            r.setFillColor(QColor(255, 0, 0, 63)) # 63 -> Alpha usado por QgsHighlight.
+            # 63 -> Alpha usado por QgsHighlight.
+            r.setFillColor(QColor(255, 0, 0, 63))
             r.setWidth(2)
             self.parcelasResaltadas.append(r)
 
@@ -431,6 +487,7 @@ class RrtnUtils:
                 features = list(vlayer.getFeatures())
 
                 if len(features) != 1:
-                    raise Exception(u"PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(muniText, poligono, parcela))
+                    raise Exception(u"PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(
+                        muniText, poligono, parcela))
 
         return (vlayer, features[0])

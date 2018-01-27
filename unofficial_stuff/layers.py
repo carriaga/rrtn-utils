@@ -68,3 +68,14 @@ field=name:type(length,precision) Defines an attribute of the layer. Multiple fi
 
 An example url is "Point?crs=epsg:4326&field=id:integer&field=name:string(20)&index=yes"
 """
+# Exportar a shape
+error = QgsVectorFileWriter.writeAsVectorFormat(cLayer, "c:\tmp\prueba.shp", provider.encoding(), provider.crs(),"ESRI Shapefile")
+
+Sobrecargas:
+QgsVectorFileWriter.writeAsVectorFormat(QgsVectorLayer, QString, QString, QgsCoordinateReferenceSystem, QString driverName="ESRI Shapefile", bool onlySelected=False, QString errorMessage=None, QStringList datasourceOptions=QStringList(), QStringList layerOptions=QStringList(), bool skipAttributeCreation=False, QString newFilename=None, QgsVectorFileWriter.SymbologyExport symbologyExport=QgsVectorFileWriter.NoSymbology, float symbologyScale=1, QgsRectangle filterExtent=None, QgsWKBTypes.Type overrideGeometryType=QgsWKBTypes.Unknown, bool forceMulti=False, bool includeZ=False, list-of-int attributes=QgsAttributeList(), QgsVectorFileWriter.FieldValueConverter fieldValueConverter=nullptr)
+
+QgsVectorFileWriter.writeAsVectorFormat(QgsVectorLayer, QString, QString, QgsCoordinateTransform, QString driverName="ESRI Shapefile", bool onlySelected=False, QString errorMessage=None, QStringList datasourceOptions=QStringList(), QStringList layerOptions=QStringList(), bool skipAttributeCreation=False, QString newFilename=None, QgsVectorFileWriter.SymbologyExport symbologyExport=QgsVectorFileWriter.NoSymbology, float symbologyScale=1, QgsRectangle filterExtent=None, QgsWKBTypes.Type overrideGeometryType=QgsWKBTypes.Unknown, bool forceMulti=False, bool includeZ=False, list-of-int attributes=QgsAttributeList(), QgsVectorFileWriter.FieldValueConverter fieldValueConverter=nullptr)
+
+QgsVectorFileWriter.writeAsVectorFormat(QgsVectorLayer, QString, QgsVectorFileWriter.SaveVectorOptions, QString newFilename=nullptr, QString errorMessage=nullptr)
+
+
