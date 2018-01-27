@@ -38,6 +38,8 @@ import os.path
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
 RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
+# Nombre capa de trabajo.
+WORKING_LAYER_NAME = u"Parcelas actuación"
 
 # Eliminar acentos (Python 2.7)
 import unicodedata
@@ -374,7 +376,7 @@ class RrtnUtils:
                     return
 
             templateLayer = QgsVectorLayer(
-                'Polygon?crs=' + RRTN_CRS + '&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', u"Parcelas actuación", 'memory')
+                'Polygon?crs=' + RRTN_CRS + '&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', WORKING_LAYER_NAME, 'memory')
             provider = templateLayer.dataProvider()
 
             # Crear una archivo shape con la estructura de la plantilla. Nota: machaca el fichero existente.
@@ -385,12 +387,13 @@ class RrtnUtils:
                 raise Exception(u"Error al crear el fichero {0}.".format(fileName))
 
             # Cargar el nuevo archivo en el mapa.
-            vlayer = QgsVectorLayer(fileName, u"Parcelas actuación", "ogr")
+            vlayer = QgsVectorLayer(fileName, WORKING_LAYER_NAME, "ogr")
 
             if not vlayer.isValid():
                 raise Exception(u"Error al crear el fichero {0}.".format(fileName))
 
             # Conservar como nueca capa de trabajo y añadir a la ToC.
+            self.dockwidget.leWorkingLayer.setText(u"{0} ({1})".format(WORKING_LAYER_NAME, fileName))
             self.workingLayer = vlayer
             self.workingLayer.startEditing()
             QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
