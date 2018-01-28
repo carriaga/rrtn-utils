@@ -2,6 +2,9 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## Change log
+2018/01/28: 
+Nuevo botón para permitir seleccionar una capa de trabajo compatible entre las capas cargadas. Desarrollado parcialmente: localizar capas compatibles para mostrarlas al usuario.
+
 2018/01/27: 
 Nuevo icono para la barra de plugins.
 

@@ -1,5 +1,7 @@
 from qgis.gui import QgsMessageBar, QgsHighlight, QgsRubberBand
 
+layer = self.iface.activeLayer()
+
 def agregarResaltados(selectedLayer, pGeom, canvas):
     """
     Esta técnica permite agregar un resaltado a una geometría de una capa. Se mantendrá visible mientras el objeto QgsHighlight esté referenciado.

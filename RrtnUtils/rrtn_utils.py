@@ -20,12 +20,12 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter
+from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, QGis
 from qgis.gui import QgsMessageBar, QgsRubberBand
 
 import urllib
 
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt
+from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant
 from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox
 # Initialize Qt resources from file resources.py
 import resources
@@ -40,6 +40,12 @@ RRTN_CRS = 'EPSG:25830'
 RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
 # Nombre capa de trabajo.
 WORKING_LAYER_NAME = u"Parcelas actuación"
+# Nombres campo capa de trabajo.
+LOCALID_FIELDNAME = u'localId'
+LOCALID_FIELDLENGTH = 9
+NAMESPACE_FIELDNAME = u'namespace'
+NAMESPACE_FIELDLENGTH = 20
+AREA_FIELDNAME = u'area'
 
 # Eliminar acentos (Python 2.7)
 import unicodedata
@@ -60,7 +66,7 @@ class RrtnUtils:
         self.iface = iface
 
         # Get plugin accesible for @DEBUG purposes.
-        #iface.rrtnPlugin = self
+        iface.rrtnPlugin = self
 
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
@@ -201,8 +207,10 @@ class RrtnUtils:
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
         self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
         self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscarClick)
-        self.dockwidget.btnInitWorkingLayer.clicked.disconnect(
-            self.onBtnInitWorkingLayerClick)
+        self.dockwidget.btnNewWorkingLayer.clicked.disconnect(
+            self.onBtnNewWorkingLayerClick)
+        self.dockwidget.btnSelectWorkingLayer.clicked.disconnect(
+            self.onBtnSelectWorkingLayerClick)
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
@@ -254,8 +262,10 @@ class RrtnUtils:
             # Signal handlers.
             self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
             self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscarClick)
-            self.dockwidget.btnInitWorkingLayer.clicked.connect(
-                self.onBtnInitWorkingLayerClick)
+            self.dockwidget.btnNewWorkingLayer.clicked.connect(
+                self.onBtnNewWorkingLayerClick)
+            self.dockwidget.btnSelectWorkingLayer.clicked.connect(
+                self.onBtnSelectWorkingLayerClick)
             # Capturar la pulsación del botón refrescar.
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
             ).actions() if x.objectName() == 'mActionDraw'][0]
@@ -276,6 +286,9 @@ class RrtnUtils:
             # Ruta base del usuario para salvar archivos.
             self.userDir = "~"
             #self.userDir = "c:/tmp"
+
+            # Iniciar atributo para almacenar la capa de trabajo.
+            self.workingLayer = None
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
@@ -344,7 +357,21 @@ class RrtnUtils:
         """ Captura del botón Refresh para borrar la lista de seleccionadas """
         self.limpiarSeleccion()
 
-    def onBtnInitWorkingLayerClick(self):
+    def onBtnSelectWorkingLayerClick(self):
+        """Seleccionar una de las capas entre las cargadas"""
+
+        # Obtener las capas compatibles de la ToC que no sean igual a la de trabajo.
+        compatibleLayers = list()
+        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QGis.Polygon:
+                # Ver si es compatible.
+                fields = list(layer.fields())
+                if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
+                    compatibleLayers.append(layer)
+        
+        print(compatibleLayers)
+
+    def onBtnNewWorkingLayerClick(self):
         """Crear una nueva capa de trabajo para la edición de parcelas"""
 
         try:
@@ -364,8 +391,8 @@ class RrtnUtils:
                     layersToRemove.append(layer)
 
             if len(layersToRemove) > 0:
-                reply = QMessageBox.question(self.dockwidget, u"Aviso", 
-                 u"El fichero seleccionado se encuentra entre las capas cargadas y éstas serán sustituidas si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
+                reply = QMessageBox.question(self.dockwidget, u"Aviso",
+                                             u"El fichero seleccionado se encuentra entre las capas cargadas y éstas serán sustituidas si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
 
                 if reply == QMessageBox.Yes:
                     # Descargar las capas cargadas.
@@ -376,7 +403,9 @@ class RrtnUtils:
                     return
 
             templateLayer = QgsVectorLayer(
-                'Polygon?crs=' + RRTN_CRS + '&field=localId:string(9)&field=namespace:string(20)&field=area:double&index=yes', WORKING_LAYER_NAME, 'memory')
+                'Polygon?crs=' + RRTN_CRS + '&field={0}:string({1})&field={2}:string({3})&field={4}:double&index=yes'.format(
+                    LOCALID_FIELDNAME, LOCALID_FIELDLENGTH, NAMESPACE_FIELDNAME, NAMESPACE_FIELDLENGTH, AREA_FIELDNAME
+                ), WORKING_LAYER_NAME, 'memory')
             provider = templateLayer.dataProvider()
 
             # Crear una archivo shape con la estructura de la plantilla. Nota: machaca el fichero existente.
@@ -384,16 +413,19 @@ class RrtnUtils:
                 templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")
 
             if error != QgsVectorFileWriter.NoError:
-                raise Exception(u"Error al crear el fichero {0}.".format(fileName))
+                raise Exception(
+                    u"Error al crear el fichero {0}.".format(fileName))
 
             # Cargar el nuevo archivo en el mapa.
             vlayer = QgsVectorLayer(fileName, WORKING_LAYER_NAME, "ogr")
 
             if not vlayer.isValid():
-                raise Exception(u"Error al crear el fichero {0}.".format(fileName))
+                raise Exception(
+                    u"Error al crear el fichero {0}.".format(fileName))
 
             # Conservar como nueca capa de trabajo y añadir a la ToC.
-            self.dockwidget.leWorkingLayer.setText(u"{0} ({1})".format(WORKING_LAYER_NAME, fileName))
+            self.dockwidget.leWorkingLayer.setText(
+                u"{0} ({1})".format(WORKING_LAYER_NAME, fileName))
             self.workingLayer = vlayer
             self.workingLayer.startEditing()
             QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
