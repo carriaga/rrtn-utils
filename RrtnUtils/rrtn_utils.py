@@ -24,9 +24,10 @@ from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapL
 from qgis.gui import QgsMessageBar, QgsRubberBand
 
 import urllib
+import time
 
 from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant
-from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox
+from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox, QInputDialog
 # Initialize Qt resources from file resources.py
 import resources
 
@@ -214,6 +215,9 @@ class RrtnUtils:
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
+        # Capturar la descarga de capas.
+        QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
+            self.onLayerWillBeRemoved)
 
         # remove this statement if dockwidget is to remain
         # for reuse if plugin is reopened
@@ -270,6 +274,8 @@ class RrtnUtils:
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
             ).actions() if x.objectName() == 'mActionDraw'][0]
             btnDraw.triggered.connect(self.onActionDraw)
+            # Capturar la descarga de capas.
+            QgsMapLayerRegistry.instance().layerWillBeRemoved.connect(self.onLayerWillBeRemoved)
 
             # Cargar ComboBox de municipios si no está ya cargado.
             if self.dockwidget.cmbMunicipios.count() == 0:
@@ -294,6 +300,13 @@ class RrtnUtils:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+
+    def onLayerWillBeRemoved(self, layerId):
+        """ Evento previo a la eliminación de una capa de la leyenda  """
+
+        if self.workingLayer and self.workingLayer.id() == layerId:
+            self.workingLayer = None
+            self.dockwidget.leWorkingLayer.clear()
 
     def datosMunicipios(self):
         """ Obtener la lista de municipios de Navarra """
@@ -368,8 +381,18 @@ class RrtnUtils:
                 fields = list(layer.fields())
                 if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
                     compatibleLayers.append(layer)
-        
-        print(compatibleLayers)
+
+        if not compatibleLayers:
+            self.iface.messageBar().pushMessage(
+                u"No hay cargada ninguna capa compatible.", QgsMessageBar.WARNING, 6)
+        else:
+            layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
+            ).dataSourceUri().split('|')[0]) for layer in compatibleLayers]
+            (item, ok) = QInputDialog.getItem(self.dockwidget, u"Selección de capa de trabajo",
+                                              "Lista de capas compatibles:", layerNames, 0, False)
+            if ok:
+                index = layerNames.index(item)
+                self.setWorkingLayer(compatibleLayers[index])
 
     def onBtnNewWorkingLayerClick(self):
         """Crear una nueva capa de trabajo para la edición de parcelas"""
@@ -423,15 +446,23 @@ class RrtnUtils:
                 raise Exception(
                     u"Error al crear el fichero {0}.".format(fileName))
 
-            # Conservar como nueca capa de trabajo y añadir a la ToC.
-            self.dockwidget.leWorkingLayer.setText(
-                u"{0} ({1})".format(WORKING_LAYER_NAME, fileName))
-            self.workingLayer = vlayer
-            self.workingLayer.startEditing()
+            # Conservar como nueva capa de trabajo y añadir a la ToC.
+            self.setWorkingLayer(vlayer)
             QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
 
         except Exception as error:
             self.iface.messageBar().pushMessage(error.message, QgsMessageBar.CRITICAL, 10)
+
+    def setWorkingLayer(self, vlayer):
+        """ Almacena una capa como capa de trabajo y lo refleja en la UI """
+
+        self.workingLayer = vlayer
+        fileName = vlayer.dataProvider().dataSourceUri().split('|')[0]
+        self.dockwidget.leWorkingLayer.setText(
+            u"{0} ({1})".format(vlayer.name(), fileName))
+
+        if not self.workingLayer.isEditable():
+            self.workingLayer.startEditing()
 
     def onBtnBuscarClick(self):
         """Localizar una parcela catastral en el mapa """

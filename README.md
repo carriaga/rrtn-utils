@@ -2,6 +2,12 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## Change log
+2018/02/10:
+Funcionamiento completo del botón que permite seleccionar una capa de trabajo entre las que hay cargadas (sin tener en cuenta la que se pueda tener ya seleccionada).
+
+2018/02/02:
+Detecta si se ha eleminado de la ToC la capa de trabajo para dejar de referenciarla.
+
 2018/01/28: 
 Nuevo botón para permitir seleccionar una capa de trabajo compatible entre las capas cargadas. Desarrollado parcialmente: localizar capas compatibles para mostrarlas al usuario.
 
@@ -38,7 +44,6 @@ Se ha reducido el total de llamadas a 2, evitando llamar a _featureCount_.
 2. Plantear funcionamiento capa edición.
 2.1 Agregar parcelas a la capa de trabajo:
 - Importar archivos de trabajo existentes, cambiar la capa de trabajo.
-- Hay que proteger la eliminación de esa capa desde la ToC (signals).
 - También se puede seleccionar como capa de trabajo al añadir al ToC.
 - Función que permita validar la estructura de la capa de trabajo seleccionada: capa_trabajo_compatible.
 - Agregar la parcela localizada en la búsqueda.
