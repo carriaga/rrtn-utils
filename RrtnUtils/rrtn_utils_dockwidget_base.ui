@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
+    <width>260</width>
     <height>336</height>
    </rect>
   </property>
@@ -68,7 +68,7 @@
         <item row="1" column="0">
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>Municipio</string>
+           <string>Municipio:</string>
           </property>
          </widget>
         </item>
@@ -88,7 +88,7 @@
         <item row="2" column="0">
          <widget class="QLabel" name="label_2">
           <property name="text">
-           <string>Polígono</string>
+           <string>Polígono:</string>
           </property>
          </widget>
         </item>
@@ -108,7 +108,7 @@
         <item row="3" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Parcela</string>
+           <string>Parcela:</string>
           </property>
          </widget>
         </item>
@@ -158,66 +158,6 @@
          <widget class="QLabel" name="label_4">
           <property name="text">
            <string>Capa de trabajo:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="0" colspan="2">
-         <widget class="QLineEdit" name="leWorkingLayer">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="palette">
-           <palette>
-            <active>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>67</red>
-                <green>67</green>
-                <blue>67</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </active>
-            <inactive>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>67</red>
-                <green>67</green>
-                <blue>67</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </inactive>
-            <disabled>
-             <colorrole role="Text">
-              <brush brushstyle="SolidPattern">
-               <color alpha="255">
-                <red>120</red>
-                <green>120</green>
-                <blue>120</blue>
-               </color>
-              </brush>
-             </colorrole>
-            </disabled>
-           </palette>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>50</weight>
-            <bold>false</bold>
-           </font>
-          </property>
-          <property name="autoFillBackground">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -284,6 +224,99 @@
           </layout>
          </widget>
         </item>
+        <item row="9" column="0" colspan="2">
+         <widget class="QLineEdit" name="leWorkingLayer">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="palette">
+           <palette>
+            <active>
+             <colorrole role="Text">
+              <brush brushstyle="SolidPattern">
+               <color alpha="255">
+                <red>67</red>
+                <green>67</green>
+                <blue>67</blue>
+               </color>
+              </brush>
+             </colorrole>
+            </active>
+            <inactive>
+             <colorrole role="Text">
+              <brush brushstyle="SolidPattern">
+               <color alpha="255">
+                <red>67</red>
+                <green>67</green>
+                <blue>67</blue>
+               </color>
+              </brush>
+             </colorrole>
+            </inactive>
+            <disabled>
+             <colorrole role="Text">
+              <brush brushstyle="SolidPattern">
+               <color alpha="255">
+                <red>120</red>
+                <green>120</green>
+                <blue>120</blue>
+               </color>
+              </brush>
+             </colorrole>
+            </disabled>
+           </palette>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="autoFillBackground">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="10" column="0" colspan="2">
+         <widget class="Line" name="line">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>10</height>
+           </size>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="11" column="0" colspan="2">
+         <widget class="QCheckBox" name="chkCrs">
+          <property name="text">
+           <string>Asignar CRS EPS:25830 al mapa al inicio.</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="12" column="0" colspan="2">
+         <widget class="QCheckBox" name="chkWms">
+          <property name="text">
+           <string>Cargar WMS RRTN (Catastro) IDENA.</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
      </widget>
@@ -292,11 +325,16 @@
   </widget>
  </widget>
  <tabstops>
-  <tabstop>btnInitMap</tabstop>
   <tabstop>cmbMunicipios</tabstop>
   <tabstop>lePoligono</tabstop>
   <tabstop>leParcela</tabstop>
   <tabstop>btnBuscar</tabstop>
+  <tabstop>btnNewWorkingLayer</tabstop>
+  <tabstop>btnSelectWorkingLayer</tabstop>
+  <tabstop>leWorkingLayer</tabstop>
+  <tabstop>chkCrs</tabstop>
+  <tabstop>chkWms</tabstop>
+  <tabstop>btnInitMap</tabstop>
   <tabstop>tabWidget</tabstop>
  </tabstops>
  <resources/>

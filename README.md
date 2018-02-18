@@ -2,6 +2,9 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## Change log
+2018/02/18:
+Agregados checkboxes para asignar el CRS 25830 y cargar WMS RRTN @ IDENA al inicio almancenando los valores indicados por el usuario en settings (QSettings).
+
 2018/02/10:
 Funcionamiento completo del botón que permite seleccionar una capa de trabajo entre las que hay cargadas (sin tener en cuenta la que se pueda tener ya seleccionada).
 
@@ -36,10 +39,8 @@ Al agregar la capa WFS se produce una llamada _DescribeFeatureType_.
 Se ha reducido el total de llamadas a 2, evitando llamar a _featureCount_.
 
 ## TO DO list
-1. Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
-- Asignar CRS Navarra como check. Pestaña general: un texto en rojo, con tooltip, que al clicar sobre él pregunte si se quiere poner el SRS.
-- Cargar WMS Catastro como check. Pestaña general. Pasarlo a la zona de abajo: "cargar WMS al entrar". Que recuerde el estado de la última ejecución...
-- Check (marcar todas).
+1. Realizar las acciones de los checks de WMS y CRS.
+Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
 
 2. Plantear funcionamiento capa edición.
 2.1 Agregar parcelas a la capa de trabajo:

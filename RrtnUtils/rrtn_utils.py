@@ -48,6 +48,10 @@ NAMESPACE_FIELDNAME = u'namespace'
 NAMESPACE_FIELDLENGTH = 20
 AREA_FIELDNAME = u'area'
 
+# USER SETTING KEYS
+SETTING_CRS_KEY = 'rrtnUtils/crs'
+SETTING_WMS_KEY = 'rrtnUtils/wms'
+
 # Eliminar acentos (Python 2.7)
 import unicodedata
 
@@ -215,6 +219,9 @@ class RrtnUtils:
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
+        self.dockwidget.chkCrs.stateChanged.disconnect(self.onChkCrsStateChange)
+        self.dockwidget.chkWms.stateChanged.disconnect(self.onChkWmsStateChange)
+
         # Capturar la descarga de capas.
         QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
             self.onLayerWillBeRemoved)
@@ -259,6 +266,17 @@ class RrtnUtils:
             if self.dockwidget == None:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = RrtnUtilsDockWidget()
+            
+            # RECUPERAR SETTINGS USUARIO
+            crs = QSettings().value(SETTING_CRS_KEY) == None or QSettings().value(SETTING_CRS_KEY) == "true"
+            wms = QSettings().value(SETTING_WMS_KEY) == None or QSettings().value(SETTING_WMS_KEY) == "true"
+
+            self.dockwidget.chkCrs.setChecked(crs)
+            self.dockwidget.chkWms.setChecked(wms)
+
+            # Asignar EPSG:25830 si no está asignado.
+
+            # Cargar WMS RRTN @ IDENA si no está cargado.
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
@@ -270,6 +288,10 @@ class RrtnUtils:
                 self.onBtnNewWorkingLayerClick)
             self.dockwidget.btnSelectWorkingLayer.clicked.connect(
                 self.onBtnSelectWorkingLayerClick)
+            
+            self.dockwidget.chkCrs.stateChanged.connect(self.onChkCrsStateChange)
+            self.dockwidget.chkWms.stateChanged.connect(self.onChkWmsStateChange)
+
             # Capturar la pulsación del botón refrescar.
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
             ).actions() if x.objectName() == 'mActionDraw'][0]
@@ -286,6 +308,12 @@ class RrtnUtils:
                     self.dockwidget.cmbMunicipios.addItem(
                         unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper(), feature["CMUNICIPIO"])
 
+            #############################################################################
+            #                                                                           #
+            #                      Inicialización de propiedades.                       #
+            #                                                                           #
+            #############################################################################
+            
             # Lista de parcelas seleccionadas.
             self.parcelasResaltadas = list()
 
@@ -295,11 +323,25 @@ class RrtnUtils:
 
             # Iniciar atributo para almacenar la capa de trabajo.
             self.workingLayer = None
+            #
+            #############################################################################
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+
+    def onChkCrsStateChange(self, state):
+        """ Evento de cambio de estado del checkBox CRS  """
+        
+        # Persistir el estado del check.
+        QSettings().setValue(SETTING_CRS_KEY, state == Qt.Checked)
+
+    def onChkWmsStateChange(self, state):
+        """ Evento de cambio de estado del checkBox WMS  """
+
+        # Persistir el estado del check.
+        QSettings().setValue(SETTING_WMS_KEY, state == Qt.Checked)
 
     def onLayerWillBeRemoved(self, layerId):
         """ Evento previo a la eliminación de una capa de la leyenda  """
