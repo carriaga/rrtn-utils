@@ -2,6 +2,17 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## Change log
+2018/03/10:
+Incorporada la funcionalidad de inicializar el mapa al WMS de IDENA y al CRS 25830 mediante la configuración de usuario/checkboxes (eliminado botón inicializar mapa).
+
+Poner validador de expresión regular a los campos de polígono y parcela.
+
+Agregar funcinalidad para consultar datos de la parcela en la web del RRTN en un QWebView integrado en un QDialog.
+
+Bug: no cargar WMS IDENA si ya está en la ToC.
+
+Refactorización: obtención de códigos localizadores en un método común.
+
 2018/02/18:
 Agregados checkboxes para asignar el CRS 25830 y cargar WMS RRTN @ IDENA al inicio almancenando los valores indicados por el usuario en settings (QSettings).
 

@@ -26,8 +26,10 @@ from qgis.gui import QgsMessageBar, QgsRubberBand
 import urllib
 import time
 
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant
-from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox, QInputDialog
+from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
+from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox, QInputDialog, QRegExpValidator, QDialog, QPushButton
+from PyQt4.QtWebKit import QWebView
+
 # Initialize Qt resources from file resources.py
 import resources
 
@@ -210,8 +212,10 @@ class RrtnUtils:
 
         # disconnects
         self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
-        self.dockwidget.btnInitMap.clicked.disconnect(self.onBtnInitMapClick)
-        self.dockwidget.btnBuscar.clicked.disconnect(self.onBtnBuscarClick)
+        self.dockwidget.btnLocalizarParcela.clicked.disconnect(
+            self.onBtnLocalizarParcelaClick)
+        self.dockwidget.btnInfoParcela.clicked.disconnect(
+            self.onBtnInfoParcelaClick)
         self.dockwidget.btnNewWorkingLayer.clicked.disconnect(
             self.onBtnNewWorkingLayerClick)
         self.dockwidget.btnSelectWorkingLayer.clicked.disconnect(
@@ -219,8 +223,10 @@ class RrtnUtils:
         btnDraw = [x for x in self.iface.mapNavToolToolBar(
         ).actions() if x.objectName() == 'mActionDraw'][0]
         btnDraw.triggered.disconnect(self.onActionDraw)
-        self.dockwidget.chkCrs.stateChanged.disconnect(self.onChkCrsStateChange)
-        self.dockwidget.chkWms.stateChanged.disconnect(self.onChkWmsStateChange)
+        self.dockwidget.chkCrs.stateChanged.disconnect(
+            self.onChkCrsStateChange)
+        self.dockwidget.chkWms.stateChanged.disconnect(
+            self.onChkWmsStateChange)
 
         # Capturar la descarga de capas.
         QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
@@ -266,31 +272,41 @@ class RrtnUtils:
             if self.dockwidget == None:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = RrtnUtilsDockWidget()
-            
+
             # RECUPERAR SETTINGS USUARIO
-            crs = QSettings().value(SETTING_CRS_KEY) == None or QSettings().value(SETTING_CRS_KEY) == "true"
-            wms = QSettings().value(SETTING_WMS_KEY) == None or QSettings().value(SETTING_WMS_KEY) == "true"
+            crs = QSettings().value(SETTING_CRS_KEY) == None or QSettings().value(
+                SETTING_CRS_KEY) == "true"
+            wms = QSettings().value(SETTING_WMS_KEY) == None or QSettings().value(
+                SETTING_WMS_KEY) == "true"
 
             self.dockwidget.chkCrs.setChecked(crs)
             self.dockwidget.chkWms.setChecked(wms)
 
             # Asignar EPSG:25830 si no está asignado.
+            if crs:
+                self.fijarSrsRrtn()
 
             # Cargar WMS RRTN @ IDENA si no está cargado.
+            if wms:
+                self.cargarWmsCatastroIdena()
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
             # Signal handlers.
-            self.dockwidget.btnInitMap.clicked.connect(self.onBtnInitMapClick)
-            self.dockwidget.btnBuscar.clicked.connect(self.onBtnBuscarClick)
+            self.dockwidget.btnLocalizarParcela.clicked.connect(
+                self.onBtnLocalizarParcelaClick)
+            self.dockwidget.btnInfoParcela.clicked.connect(
+                self.onBtnInfoParcelaClick)
             self.dockwidget.btnNewWorkingLayer.clicked.connect(
                 self.onBtnNewWorkingLayerClick)
             self.dockwidget.btnSelectWorkingLayer.clicked.connect(
                 self.onBtnSelectWorkingLayerClick)
-            
-            self.dockwidget.chkCrs.stateChanged.connect(self.onChkCrsStateChange)
-            self.dockwidget.chkWms.stateChanged.connect(self.onChkWmsStateChange)
+
+            self.dockwidget.chkCrs.stateChanged.connect(
+                self.onChkCrsStateChange)
+            self.dockwidget.chkWms.stateChanged.connect(
+                self.onChkWmsStateChange)
 
             # Capturar la pulsación del botón refrescar.
             btnDraw = [x for x in self.iface.mapNavToolToolBar(
@@ -308,12 +324,20 @@ class RrtnUtils:
                     self.dockwidget.cmbMunicipios.addItem(
                         unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper(), feature["CMUNICIPIO"])
 
+            # Poner validadores a los campos de códigos localizadores.
+            # Enteros de 1 a 99
+            self.dockwidget.lePoligono.setValidator(
+                QRegExpValidator(QRegExp('[1-9]\\d{0,1}')))
+            # Enteros de 1 a 9999
+            self.dockwidget.leParcela.setValidator(
+                QRegExpValidator(QRegExp('[1-9]\\d{0,3}')))
+
             #############################################################################
             #                                                                           #
             #                      Inicialización de propiedades.                       #
             #                                                                           #
             #############################################################################
-            
+
             # Lista de parcelas seleccionadas.
             self.parcelasResaltadas = list()
 
@@ -323,6 +347,9 @@ class RrtnUtils:
 
             # Iniciar atributo para almacenar la capa de trabajo.
             self.workingLayer = None
+
+            # Navegador web integrado.
+            self.browser = None
             #
             #############################################################################
 
@@ -333,15 +360,23 @@ class RrtnUtils:
 
     def onChkCrsStateChange(self, state):
         """ Evento de cambio de estado del checkBox CRS  """
-        
+
+        checked = state == Qt.Checked
+        if checked:
+            self.fijarSrsRrtn()
+
         # Persistir el estado del check.
-        QSettings().setValue(SETTING_CRS_KEY, state == Qt.Checked)
+        QSettings().setValue(SETTING_CRS_KEY, checked)
 
     def onChkWmsStateChange(self, state):
         """ Evento de cambio de estado del checkBox WMS  """
 
+        checked = state == Qt.Checked
+        if checked:
+            self.cargarWmsCatastroIdena()
+
         # Persistir el estado del check.
-        QSettings().setValue(SETTING_WMS_KEY, state == Qt.Checked)
+        QSettings().setValue(SETTING_WMS_KEY, checked)
 
     def onLayerWillBeRemoved(self, layerId):
         """ Evento previo a la eliminación de una capa de la leyenda  """
@@ -362,14 +397,16 @@ class RrtnUtils:
 
         return list(layer.getFeatures())
 
-    def inicializarMapa(self):
-        # Fijar el SRS necesario para el RRTN.
+    def fijarSrsRrtn(self):
+        """ Fijar el SRS necesario para el RRTN """
 
         canvas = self.iface.mapCanvas()
         crs = QgsCoordinateReferenceSystem(RRTN_CRS)
         canvas.setDestinationCrs(crs)
 
-        # Cargar WMS Catastro de IDENA.
+    def cargarWmsCatastroIdena(self):
+        """ Cargar WMS Catastro de IDENA """
+
         params = {
             # 14/10/2017: antes era 'IDENA:catastro'.
             'layers': 'catastro',
@@ -379,6 +416,11 @@ class RrtnUtils:
             'dpiMode': '7',
             'url': 'http://idena.navarra.es/ogc/wms'
         }
+
+        # Comprobar que no esté ya cargada.
+        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+            if layer.type() == QgsMapLayer.RasterLayer and params['url'] in layer.dataProvider().dataSourceUri():
+                return
 
         uri = urllib.unquote(urllib.urlencode(params))
 
@@ -391,10 +433,6 @@ class RrtnUtils:
             self.iface.messageBar().pushMessage(
                 u"Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
             QgsMapLayerRegistry.instance().addMapLayer(rlayer)
-
-    def onBtnInitMapClick(self):
-        """Map initialization signal handler"""
-        self.inicializarMapa()
 
     def limpiarSeleccion(self):
         """
@@ -506,8 +544,39 @@ class RrtnUtils:
         if not self.workingLayer.isEditable():
             self.workingLayer.startEditing()
 
-    def onBtnBuscarClick(self):
-        """Localizar una parcela catastral en el mapa """
+    def obtenerCodigosLocalizadores(self):
+        """ Devulve los códigos localizadores introducidos por el usuario """
+
+        # Obtener el código de municipio.
+        muniText = self.dockwidget.cmbMunicipios.currentText()
+
+        # Si se ha introducido un número tratamos de usarlo como código de municipio.
+        if muniText.isdigit():
+            codMun = int(muniText)
+        else:
+            idx = self.dockwidget.cmbMunicipios.currentIndex()
+            idxText = self.dockwidget.cmbMunicipios.itemText(idx)
+
+            # Comprobar si el texto coincide con el valor de la selección actual del combo.
+            if muniText == idxText:
+                codMun = self.dockwidget.cmbMunicipios.itemData(idx)
+            else:
+                return
+
+        # Obtener el resto de códigos localizadores
+        codPol = self.dockwidget.lePoligono.text()
+        codPar = self.dockwidget.leParcela.text()
+
+        if not codPol.isdigit() or not codPar.isdigit():
+            return
+
+        codPol = int(codPol)
+        codPar = int(codPar)
+
+        return (muniText, codMun, codPol, codPar)
+
+    def onBtnLocalizarParcelaClick(self):
+        """ Localizar una parcela catastral en el mapa """
 
         try:
             canvas = self.iface.mapCanvas()
@@ -517,28 +586,14 @@ class RrtnUtils:
                 raise Exception(
                     u"NO HAY NINGUN MAPA INICIALIZADO. Crea un nuevo mapa e inténtalo de nuevo.")
 
-            # Obtener el código de municipio.
-            muniText = self.dockwidget.cmbMunicipios.currentText()
+            codigosLocalizadores = self.obtenerCodigosLocalizadores()
+            if not codigosLocalizadores:
+                return
 
-            # Si se ha introducido un número tratamos de usarlo como código de municipio.
-            if muniText.isdigit():
-                codMunicipio = int(muniText)
-            else:
-                idx = self.dockwidget.cmbMunicipios.currentIndex()
-                idxText = self.dockwidget.cmbMunicipios.itemText(idx)
-
-                # Comprobar si el texto coincide con el valor de la selección actual del combo.
-                if muniText == idxText:
-                    codMunicipio = self.dockwidget.cmbMunicipios.itemData(idx)
-                else:
-                    return
-
-            # Obtener la referencia catastral de la UI.
-            poligono = int(self.dockwidget.lePoligono.text())
-            parcela = int(self.dockwidget.leParcela.text())
+            (muniText, codMun, codPol, codPar) = codigosLocalizadores
 
             (selectedLayer, parcelaFeature) = self.cargarParcela(
-                codMunicipio, poligono, parcela, muniText)
+                codMun, codPol, codPar, muniText)
             parcelaGeom = parcelaFeature.geometry()
 
             # Crear un resaltado para la parcela seleccionada.
@@ -565,16 +620,49 @@ class RrtnUtils:
             self.iface.messageBar().pushMessage(
                 error.message, QgsMessageBar.WARNING, 6)
 
-    def cargarParcela(self, codMunicipio, poligono, parcela, muniText):
+    def onBtnInfoParcelaClick(self):
+        """ Obtener información de una parcela en el RRTN """
+
+        try:
+            codigosLocalizadores = self.obtenerCodigosLocalizadores()
+            if not codigosLocalizadores:
+                return
+
+            (muniText, codMun, codPol, codPar) = codigosLocalizadores
+
+            # Abrir la página de datos de parcela del RRTN.
+            if not self.browser:
+                self.browser = QDialog(self.dockwidget)
+                self.browser.setWindowTitle(u"Datos de la parcela en el RRTN")
+                wv = QWebView(self.browser)
+                # QPushButton(u"Aceptar", self.browser)
+            else:
+                wv = self.browser.findChildren(QWebView)[0]
+
+            uri_template = "https://catastro.navarra.es/ref_catastral/unidades.aspx?C={0}&PO={1}&PA={2}&lang=es"
+            uri = uri_template.format(codMun, codPol, codPar)
+
+            # Cargar la página.
+            wv.load(QUrl(uri))
+
+            # Mostrar el QDialog
+            if self.browser.isHidden():
+                self.browser.show()
+                self.browser.adjustSize()
+
+        except Exception as error:
+            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
+
+    def cargarParcela(self, codMun, codPol, codPar, muniText):
         # Leyenda de la capa.
         leyenda = u"Parcela: {0}, {1}, {2}".format(
-            codMunicipio, poligono, parcela)
+            codMun, codPol, codPar)
 
         # URL general
         uri_template = "srsname=" + RRTN_CRS + \
             " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
         uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
-            codMunicipio, poligono, parcela)
+            codMun, codPol, codPar)
 
         # Búsqueda en parcelas urbanas
         uri = uri_template.format("CATAST_Pol_ParcelaUrba")
@@ -596,6 +684,6 @@ class RrtnUtils:
 
                 if len(features) != 1:
                     raise Exception(u"PARCELA NO ENCONTRADA ({0}, {1}, {2})".format(
-                        muniText, poligono, parcela))
+                        muniText, codPol, codPar))
 
         return (vlayer, features[0])
