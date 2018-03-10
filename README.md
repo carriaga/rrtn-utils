@@ -50,8 +50,7 @@ Al agregar la capa WFS se produce una llamada _DescribeFeatureType_.
 Se ha reducido el total de llamadas a 2, evitando llamar a _featureCount_.
 
 ## TO DO list
-1. Realizar las acciones de los checks de WMS y CRS.
-Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
+1. Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
 
 2. Plantear funcionamiento capa edición.
 2.1 Agregar parcelas a la capa de trabajo:
@@ -79,3 +78,6 @@ Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().des
 - Búsquedas:
     - Habilitar sólo si CRS Navarra y municipios cargados.
     - Cargar lista de municipios en un combo en un hilo aparte tras mostrar plugin.
+
+4. Colores para la validación de los inputs:
+https://snorfalorpagus.net/blog/2014/08/09/validating-user-input-in-pyqt4-using-qvalidator/
