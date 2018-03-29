@@ -23,14 +23,15 @@
 
 import os
 
-from qgis.PyQt import QtGui, uic
+from qgis.PyQt import uic
 from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtWidgets import QDockWidget
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'rrtn_utils_dockwidget_base.ui'))
 
 
-class RrtnUtilsDockWidget(QtGui.QDockWidget, FORM_CLASS):
+class RrtnUtilsDockWidget(QDockWidget, FORM_CLASS):
 
     closingPlugin = pyqtSignal()
 

@@ -24,15 +24,16 @@ from __future__ import absolute_import
 from future import standard_library
 standard_library.install_aliases()
 from builtins import object
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, QGis
-from qgis.gui import QgsMessageBar, QgsRubberBand
+from qgis.core import QgsCoordinateReferenceSystem, QgsProject, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, Qgis
+from qgis.gui import QgsRubberBand
 
 import urllib.request, urllib.parse, urllib.error
 import time
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QInputDialog, QDialog, QPushButton
-from qgis.PyQt.QtGui import QIcon, QColor
+from qgis.PyQt.QtGui import QIcon, QColor, QRegExpValidator
+
 from qgis.PyQt.QtWebKitWidgets import QWebView
 
 # Initialize Qt resources from file resources.py
@@ -234,7 +235,7 @@ class RrtnUtils(object):
             self.onChkWmsStateChange)
 
         # Capturar la descarga de capas.
-        QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
+        QgsProject.instance().layerWillBeRemoved.disconnect(
             self.onLayerWillBeRemoved)
 
         # remove this statement if dockwidget is to remain
@@ -318,16 +319,16 @@ class RrtnUtils(object):
             ).actions() if x.objectName() == 'mActionDraw'][0]
             btnDraw.triggered.connect(self.onActionDraw)
             # Capturar la descarga de capas.
-            QgsMapLayerRegistry.instance().layerWillBeRemoved.connect(self.onLayerWillBeRemoved)
+            QgsProject.instance().layerWillBeRemoved.connect(self.onLayerWillBeRemoved)
 
             # Cargar ComboBox de municipios si no está ya cargado.
             if self.dockwidget.cmbMunicipios.count() == 0:
                 for feature in self.datosMunicipios():
-                    # Añadir nombres de municipios sin acentos y en mayúsculas.
                     # import unicodedata
                     # HorizontalPolicy: Ignored -> evitar que se expanda todo al ancho del texto de municipio más largo.
                     self.dockwidget.cmbMunicipios.addItem(
-                        unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper(), feature["CMUNICIPIO"])
+                        # Añadir nombres de municipios sin acentos y en mayúsculas.
+                        unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper().decode("utf-8") , feature["CMUNICIPIO"])
 
             # Poner validadores a los campos de códigos localizadores.
             # Enteros de 1 a 99
@@ -423,7 +424,7 @@ class RrtnUtils(object):
         }
 
         # Comprobar que no esté ya cargada.
-        for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
+        for layer in list(QgsProject.instance().mapLayers().values()):
             if layer.type() == QgsMapLayer.RasterLayer and params['url'] in layer.dataProvider().dataSourceUri():
                 return
 
@@ -433,11 +434,11 @@ class RrtnUtils(object):
         if not rlayer.isValid():
 
             self.iface.messageBar().pushMessage(
-                u"Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
+                u"Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", Qgis.Critical, 10)
         else:
             self.iface.messageBar().pushMessage(
-                u"Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
-            QgsMapLayerRegistry.instance().addMapLayer(rlayer)
+                u"Entorno para el acceso al RRTN inicializado.", Qgis.Success, 5)
+            QgsProject.instance().addMapLayer(rlayer)
 
     def limpiarSeleccion(self):
         """
@@ -460,7 +461,7 @@ class RrtnUtils(object):
 
         # Obtener las capas compatibles de la ToC que no sean igual a la de trabajo.
         compatibleLayers = list()
-        for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
+        for layer in list(QgsProject.instance().mapLayers().values()):
             if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QGis.Polygon:
                 # Ver si es compatible.
                 fields = list(layer.fields())
@@ -469,7 +470,7 @@ class RrtnUtils(object):
 
         if not compatibleLayers:
             self.iface.messageBar().pushMessage(
-                u"No hay cargada ninguna capa compatible.", QgsMessageBar.WARNING, 6)
+                u"No hay cargada ninguna capa compatible.", Qgis.Warning, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
             ).dataSourceUri().split('|')[0]) for layer in compatibleLayers]
@@ -483,7 +484,7 @@ class RrtnUtils(object):
         """Crear una nueva capa de trabajo para la edición de parcelas"""
 
         try:
-            fileName, __, __ = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
+            fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
                 self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")
 
             if fileName == "":
@@ -494,7 +495,7 @@ class RrtnUtils(object):
 
             # Comprobar si está intentando sustituir a un archivo ya cargado.
             layersToRemove = list()
-            for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
+            for layer in list(QgsProject.instance().mapLayers().values()):
                 if fileName == layer.dataProvider().dataSourceUri().split('|')[0]:
                     layersToRemove.append(layer)
 
@@ -505,7 +506,7 @@ class RrtnUtils(object):
                 if reply == QMessageBox.Yes:
                     # Descargar las capas cargadas.
                     for layer in layersToRemove:
-                        QgsMapLayerRegistry.instance().removeMapLayer(layer)
+                        QgsProject.instance().removeMapLayer(layer)
                 else:
                     # Salir sin cargar.
                     return
@@ -533,10 +534,10 @@ class RrtnUtils(object):
 
             # Conservar como nueva capa de trabajo y añadir a la ToC.
             self.setWorkingLayer(vlayer)
-            QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
+            QgsProject.instance().addMapLayer(self.workingLayer)
 
         except Exception as error:
-            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.CRITICAL, 10)
+            self.iface.messageBar().pushMessage(str(error), Qgis.Critical, 10)
 
     def setWorkingLayer(self, vlayer):
         """ Almacena una capa como capa de trabajo y lo refleja en la UI """
@@ -623,7 +624,7 @@ class RrtnUtils(object):
 
         except Exception as error:
             self.iface.messageBar().pushMessage(
-                error.message, QgsMessageBar.WARNING, 6)
+                str(error), Qgis.Warning, 6)
 
     def onBtnInfoParcelaClick(self):
         """ Obtener información de una parcela en el RRTN """
@@ -656,7 +657,7 @@ class RrtnUtils(object):
                 self.browser.adjustSize()
 
         except Exception as error:
-            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
+            self.iface.messageBar().pushMessage(str(error), Qgis.Warning, 6)
 
     def cargarParcela(self, codMun, codPol, codPar, muniText):
         # Leyenda de la capa.
