@@ -14,9 +14,7 @@
 /***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
+ *   it under the terms of the Eclipse Public License - v 1.0              *
  *                                                                         *
  ***************************************************************************/
 """
@@ -388,10 +386,11 @@ class RrtnUtils:
     def datosMunicipios(self):
         """ Obtener la lista de municipios de Navarra """
 
-        # Esta uri no permite controlar la proyección de campos.
+        # Esta uri no permite controlar la proyección de campos (no lo traslada al GET).
+        # Tiene el problema añadido del TYPENAMES (que el servidor de IDENA no procesa correctamente).
         #uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_Municipio url=http://idena.navarra.es/ogc/wfs version=2.0.0 sql=SELECT CMUNICIPIO,MUNICIPIO FROM CATAST_Pol_Municipio"
 
-        # De esta manera obtenemos únicamente los dos campos necesarios.
+        # De esta manera obtenemos únicamente los dos campos necesarios. Tampoco funciona con 1.1.0. Ver llamadas con Fiddler.
         uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname=CMUNICIPIO,MUNICIPIO"
         layer = QgsVectorLayer(uri, "data", "WFS")
 
@@ -464,7 +463,7 @@ class RrtnUtils:
 
         if not compatibleLayers:
             self.iface.messageBar().pushMessage(
-                u"No hay cargada ninguna capa compatible.", QgsMessageBar.WARNING, 6)
+                u"No hay cargada ninguna capa compatible para seleccionar.", QgsMessageBar.WARNING, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
             ).dataSourceUri().split('|')[0]) for layer in compatibleLayers]
@@ -495,7 +494,7 @@ class RrtnUtils:
 
             if len(layersToRemove) > 0:
                 reply = QMessageBox.question(self.dockwidget, u"Aviso",
-                                             u"El fichero seleccionado se encuentra entre las capas cargadas y éstas serán sustituidas si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
+                                             u"El fichero seleccionado se encuentra entre las capas cargadas y éstas será sustituido si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
 
                 if reply == QMessageBox.Yes:
                     # Descargar las capas cargadas.
@@ -659,8 +658,10 @@ class RrtnUtils:
             codMun, codPol, codPar)
 
         # URL general
+        # NOTA: utilizo WFS 1.1.0 ya que la URL que genera con el parámetro TYPENAMES (propio de 2.0.0) 
+        # no se procesa bien por el servidor de IDENA (mientras no se arregle).
         uri_template = "srsname=" + RRTN_CRS + \
-            " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
+            " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=1.1.0"
         uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
             codMun, codPol, codPar)
 
