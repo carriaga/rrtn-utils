@@ -20,21 +20,26 @@
  *                                                                         *
  ***************************************************************************/
 """
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, QGis
 from qgis.gui import QgsMessageBar, QgsRubberBand
 
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import time
 
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
-from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox, QInputDialog, QRegExpValidator, QDialog, QPushButton
-from PyQt4.QtWebKit import QWebView
+from qgis.PyQt.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QInputDialog, QDialog, QPushButton
+from qgis.PyQt.QtGui import QIcon, QColor
+from qgis.PyQt.QtWebKitWidgets import QWebView
 
 # Initialize Qt resources from file resources.py
-import resources
+from . import resources
 
 # Import the code for the DockWidget
-from rrtn_utils_dockwidget import RrtnUtilsDockWidget
+from .rrtn_utils_dockwidget import RrtnUtilsDockWidget
 import os.path
 
 # CRS for the RRTN
@@ -58,7 +63,7 @@ SETTING_WMS_KEY = 'rrtnUtils/wms'
 import unicodedata
 
 
-class RrtnUtils:
+class RrtnUtils(object):
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
@@ -418,11 +423,11 @@ class RrtnUtils:
         }
 
         # Comprobar que no esté ya cargada.
-        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+        for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
             if layer.type() == QgsMapLayer.RasterLayer and params['url'] in layer.dataProvider().dataSourceUri():
                 return
 
-        uri = urllib.unquote(urllib.urlencode(params))
+        uri = urllib.parse.unquote(urllib.parse.urlencode(params))
 
         rlayer = QgsRasterLayer(uri, RRTN_WMS_LAYER_NAME, 'wms')
         if not rlayer.isValid():
@@ -455,7 +460,7 @@ class RrtnUtils:
 
         # Obtener las capas compatibles de la ToC que no sean igual a la de trabajo.
         compatibleLayers = list()
-        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+        for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
             if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QGis.Polygon:
                 # Ver si es compatible.
                 fields = list(layer.fields())
@@ -478,7 +483,7 @@ class RrtnUtils:
         """Crear una nueva capa de trabajo para la edición de parcelas"""
 
         try:
-            fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
+            fileName, __, __ = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
                 self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")
 
             if fileName == "":
@@ -489,7 +494,7 @@ class RrtnUtils:
 
             # Comprobar si está intentando sustituir a un archivo ya cargado.
             layersToRemove = list()
-            for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+            for layer in list(QgsMapLayerRegistry.instance().mapLayers().values()):
                 if fileName == layer.dataProvider().dataSourceUri().split('|')[0]:
                     layersToRemove.append(layer)
 
