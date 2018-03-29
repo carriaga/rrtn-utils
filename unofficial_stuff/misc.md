@@ -92,3 +92,30 @@ Limitar el número de features devueltas a 1: en WFS 1.1.0 empeora los tiempos y
 Aparentemente no hay diferencia entre WFS 1.1.0 y 2.0.0 en parcelas urbanas al realizar las llamadas desde QGIS. Tampoco en rústicas. Si acaso mejora algo con WFS 2.0.0. Desde PostMan siempre va mejor con WFS 1.1.0.
 
 15.10.2017: dejo la búsqueda basada en los tres campos y WFS 2.0.0. No pongo el maxFeatures=1.
+
+### Funcionamiento en QIGS3
+En QGIS3 va muy lento. Tras analizarlo con Fiddler observo que la diferencia radica en el _DescribeFeatureType_. Con QGIS3 está trayendo la descripción de todas las features de IDENA.
+
+QGIS 2 produce una URL con el parámetro **TYPENAME**:
+GET /ogc/wfs?SERVICE=WFS&REQUEST=DescribeFeatureType&VERSION=2.0.0&TYPENAME=IDENA:CATAST_Pol_ParcelaUrba HTTP/1.1
+
+Prueba: http://idena.navarra.es/ogc/wfs?SERVICE=WFS&REQUEST=DescribeFeatureType&VERSION=2.0.0&TYPENAME=IDENA:CATAST_Pol_ParcelaUrba
+
+QGIS 3 produce una URL con el parámetro **TYPENAMES**:
+GET /ogc/wfs?SERVICE=WFS&REQUEST=DescribeFeatureType&VERSION=2.0.0&TYPENAMES=IDENA:CATAST_Pol_ParcelaUrba HTTP/1.1
+
+Prueba: http://idena.navarra.es/ogc/wfs?SERVICE=WFS&REQUEST=DescribeFeatureType&VERSION=2.0.0&TYPENAMES=IDENA:CATAST_Pol_ParcelaUrba
+
+Según la doc. de Geoserver:
+The parameters for DescribeFeatureType are:
+
+Parameter | Required? | Description
+----------|-----------|------------
+service | Yes | Service name—Value is WFS
+version | Yes | Service version—Value is the current version number
+request | Yes | Operation name—Value is DescribeFeatureType
+typeNames | Yes | Name of the feature type to describe (typeName for WFS 1.1.0 and earlier)
+
+Es decir, para la versión 2.0.0 de WFS lo correcto sería mandar TYPENAMES. Luego QGIS3 está funcionando correctamente y el que parece que responde incorrectamente es IDENA.
+
+Mientras no se arregle IDENA paso a usar WFS 1.1.0.

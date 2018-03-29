@@ -14,9 +14,7 @@
 /***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
+ *   it under the terms of the Eclipse Public License - v 1.0              *
  *                                                                         *
  ***************************************************************************/
 """
@@ -43,6 +41,10 @@ from . import resources
 from .rrtn_utils_dockwidget import RrtnUtilsDockWidget
 import os.path
 
+# @DEBUG
+import traceback
+# traceback.print_exc() -> print stacktrace.
+
 # CRS for the RRTN
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
@@ -62,7 +64,6 @@ SETTING_WMS_KEY = 'rrtnUtils/wms'
 
 # Eliminar acentos (Python 2.7)
 import unicodedata
-
 
 class RrtnUtils(object):
     """QGIS Plugin Implementation."""
@@ -394,10 +395,11 @@ class RrtnUtils(object):
     def datosMunicipios(self):
         """ Obtener la lista de municipios de Navarra """
 
-        # Esta uri no permite controlar la proyección de campos.
+        # Esta uri no permite controlar la proyección de campos (no lo traslada al GET).
+        # Tiene el problema añadido del TYPENAMES (que el servidor de IDENA no procesa correctamente).
         #uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_Municipio url=http://idena.navarra.es/ogc/wfs version=2.0.0 sql=SELECT CMUNICIPIO,MUNICIPIO FROM CATAST_Pol_Municipio"
 
-        # De esta manera obtenemos únicamente los dos campos necesarios.
+        # De esta manera obtenemos únicamente los dos campos necesarios. Tampoco funciona con 1.1.0. Ver llamadas con Fiddler.
         uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname=CMUNICIPIO,MUNICIPIO"
         layer = QgsVectorLayer(uri, "data", "WFS")
 
@@ -462,7 +464,7 @@ class RrtnUtils(object):
         # Obtener las capas compatibles de la ToC que no sean igual a la de trabajo.
         compatibleLayers = list()
         for layer in list(QgsProject.instance().mapLayers().values()):
-            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QGis.Polygon:
+            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == Qgis.Polygon:
                 # Ver si es compatible.
                 fields = list(layer.fields())
                 if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
@@ -470,7 +472,7 @@ class RrtnUtils(object):
 
         if not compatibleLayers:
             self.iface.messageBar().pushMessage(
-                u"No hay cargada ninguna capa compatible.", Qgis.Warning, 6)
+                u"No hay cargada ninguna capa compatible para seleccionar.", Qgis.Warning, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
             ).dataSourceUri().split('|')[0]) for layer in compatibleLayers]
@@ -484,8 +486,9 @@ class RrtnUtils(object):
         """Crear una nueva capa de trabajo para la edición de parcelas"""
 
         try:
+            # El nombre del fichero viene en el primer elemento de la tupla.
             fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
-                self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")
+                self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")[0]
 
             if fileName == "":
                 return
@@ -501,7 +504,7 @@ class RrtnUtils(object):
 
             if len(layersToRemove) > 0:
                 reply = QMessageBox.question(self.dockwidget, u"Aviso",
-                                             u"El fichero seleccionado se encuentra entre las capas cargadas y éstas serán sustituidas si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
+                                             u"El fichero seleccionado se encuentra entre las capas cargadas y éstas será sustituido si decide continuar. ¿Desea continuar?", QMessageBox.Yes, QMessageBox.No)
 
                 if reply == QMessageBox.Yes:
                     # Descargar las capas cargadas.
@@ -518,8 +521,9 @@ class RrtnUtils(object):
             provider = templateLayer.dataProvider()
 
             # Crear una archivo shape con la estructura de la plantilla. Nota: machaca el fichero existente.
+            # En caso de error se obtiene en el primer elemento de la tupla.
             error = QgsVectorFileWriter.writeAsVectorFormat(
-                templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")
+                templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")[0]
 
             if error != QgsVectorFileWriter.NoError:
                 raise Exception(
@@ -665,8 +669,10 @@ class RrtnUtils(object):
             codMun, codPol, codPar)
 
         # URL general
+        # NOTA: utilizo WFS 1.1.0 ya que la URL que genera con el parámetro TYPENAMES (propio de 2.0.0) 
+        # no se procesa bien por el servidor de IDENA (mientras no se arregle).
         uri_template = "srsname=" + RRTN_CRS + \
-            " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=2.0.0"
+            " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=1.1.0"
         uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
             codMun, codPol, codPar)
 
