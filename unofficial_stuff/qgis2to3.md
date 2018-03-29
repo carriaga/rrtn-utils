@@ -42,5 +42,7 @@ git branch -a
 git branch -m nuevo_nombre
 ```
 
-
-
+```
+:: Subir al repo una rama nueva.
+git push --set-upstream origin qgis3
+```
