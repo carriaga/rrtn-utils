@@ -24,25 +24,3 @@ Si queremos clonar sólo la carpeta [Scripts](https://github.com/qgis/QGIS/tree/
 :: -n: no backups.
 (qgis300) PS C:\SRC\RRTNUtils\rrtn-utils> python.exe C:\SRC\QGIS\scripts\2to3 -w -n .\RrtnUtils\
 ```
-
-## Notas git
-```
-:: Descarta todos los cambios del working-tree.
-git reset --hard
-```
-
-```
-:: Ver todas las ramas (incluidas las remotas). 
-:: Cambio a rama remota igual que si la tuviésemos en local.
-git branch -a
-```
-
-```
-:: Renombrar una rama.
-git branch -m nuevo_nombre
-```
-
-```
-:: Subir al repo una rama nueva.
-git push --set-upstream origin qgis3
-```
