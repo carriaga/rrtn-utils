@@ -3,17 +3,15 @@ Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://
 
 ## TO DO list
 1. Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
+Al seleccionar capa de trabajo. Preguntar y poner.
 
 2. Plantear funcionamiento capa edición.
 2.1 Agregar parcelas a la capa de trabajo:
-- Importar archivos de trabajo existentes, cambiar la capa de trabajo.
-- También se puede seleccionar como capa de trabajo al añadir al ToC.
-- Función que permita validar la estructura de la capa de trabajo seleccionada: capa_trabajo_compatible.
 - Agregar la parcela localizada en la búsqueda.
 - Importar GML CP RRTN.
+- Visualización: configurar etiquetado por referencia catastral y activar por defecto al añadir/seleccionar capa de trabajo.
 
 2.2 Exportar a GML:
-- Configurar etiquetado por referencia catastral y activar por defecto.
 - Posibilidad de poner editores con valores cerrados.
 - Exportar a GML Navarra: 
     - Opción de sólo la parcela seleccionada.

@@ -39,6 +39,7 @@ import os.path
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
 RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
+
 # Nombre capa de trabajo.
 WORKING_LAYER_NAME = u"Parcelas actuación"
 # Nombres campo capa de trabajo.
@@ -47,6 +48,17 @@ LOCALID_FIELDLENGTH = 9
 NAMESPACE_FIELDNAME = u'namespace'
 NAMESPACE_FIELDLENGTH = 20
 AREA_FIELDNAME = u'area'
+
+# Valores de namespaces para features de la capa de trabajo.
+CP_RRTN_NAMESPACE = 'ES.RRTN.CP'
+CP_USER_NAMESPACE = 'ES.LOCAL.CP'
+
+# Nombres de campos en IDENA
+IDENA_REFCAT_FIELD = 'REFCAT'
+IDENA_CMUNICIPIO_FIELD = 'CMUNICIPIO'
+IDENA_MUNICIPIO_FIELD = 'MUNICIPIO'
+IDENA_POLIGONO_FIELD = 'POLIGONO'
+IDENA_PARCELA_FIELD = 'PARCELA'
 
 # USER SETTING KEYS
 SETTING_CRS_KEY = 'rrtnUtils/crs'
@@ -201,7 +213,7 @@ class RrtnUtils:
             callback=self.run,
             parent=self.iface.mainWindow())
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
@@ -218,13 +230,16 @@ class RrtnUtils:
             self.onBtnNewWorkingLayerClick)
         self.dockwidget.btnSelectWorkingLayer.clicked.disconnect(
             self.onBtnSelectWorkingLayerClick)
-        btnDraw = [x for x in self.iface.mapNavToolToolBar(
-        ).actions() if x.objectName() == 'mActionDraw'][0]
-        btnDraw.triggered.disconnect(self.onActionDraw)
+        self.dockwidget.btnAddParcelaSel.clicked.disconnect(
+            self.onBtnAddParcelaSelClick)
         self.dockwidget.chkCrs.stateChanged.disconnect(
             self.onChkCrsStateChange)
         self.dockwidget.chkWms.stateChanged.disconnect(
             self.onChkWmsStateChange)
+
+        btnDraw = [x for x in self.iface.mapNavToolToolBar(
+        ).actions() if x.objectName() == 'mActionDraw'][0]
+        btnDraw.triggered.disconnect(self.onActionDraw)
 
         # Capturar la descarga de capas.
         QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
@@ -241,10 +256,25 @@ class RrtnUtils:
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
 
-        # print "** UNLOAD RrtnUtils"
+        # print("** UNLOAD RrtnUtils")
 
-        # Limpiar la selección del mapa.
-        self.limpiarSeleccion()
+        # hasattr: previene error del Plugin Reloader que llama a unload.
+        # Los atributos podrían no estar creados.
+        if hasattr(self, "parcelaLocalizada"):
+            # Limpiar la selección del mapa y la información asociada.
+            self.limpiarSeleccion()
+
+        # Get plugin accesible for @DEBUG purposes.
+        if hasattr(self.iface, "rrtnPlugin"):
+            self.iface.rrtnPlugin = None
+
+        # Limpirar atributo para almacenar la capa de trabajo.
+        if hasattr(self, "workingLayer"):
+            self.workingLayer = None
+
+        # Navegador web integrado.
+        if hasattr(self, "browser"):
+            self.browser = None
 
         for action in self.actions:
             self.iface.removePluginWebMenu(
@@ -254,7 +284,7 @@ class RrtnUtils:
         # remove the toolbar
         # del self.toolbar
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     def run(self):
         """Run method that loads and starts the plugin"""
@@ -300,6 +330,8 @@ class RrtnUtils:
                 self.onBtnNewWorkingLayerClick)
             self.dockwidget.btnSelectWorkingLayer.clicked.connect(
                 self.onBtnSelectWorkingLayerClick)
+            self.dockwidget.btnAddParcelaSel.clicked.connect(
+                self.onBtnAddParcelaSelClick)
 
             self.dockwidget.chkCrs.stateChanged.connect(
                 self.onChkCrsStateChange)
@@ -320,7 +352,7 @@ class RrtnUtils:
                     # import unicodedata
                     # HorizontalPolicy: Ignored -> evitar que se expanda todo al ancho del texto de municipio más largo.
                     self.dockwidget.cmbMunicipios.addItem(
-                        unicodedata.normalize('NFD', feature["MUNICIPIO"]).encode('ascii', 'ignore').upper(), feature["CMUNICIPIO"])
+                        unicodedata.normalize('NFD', feature[IDENA_MUNICIPIO_FIELD]).encode('ascii', 'ignore').upper(), feature[IDENA_CMUNICIPIO_FIELD])
 
             # Poner validadores a los campos de códigos localizadores.
             # Enteros de 1 a 99
@@ -336,8 +368,8 @@ class RrtnUtils:
             #                                                                           #
             #############################################################################
 
-            # Lista de parcelas seleccionadas.
-            self.parcelasResaltadas = list()
+            # Inicializar información parcela seleccionada.
+            self.parcelaLocalizada = None
 
             # Ruta base del usuario para salvar archivos.
             self.userDir = "~"
@@ -382,6 +414,9 @@ class RrtnUtils:
         if self.workingLayer and self.workingLayer.id() == layerId:
             self.workingLayer = None
             self.dockwidget.leWorkingLayer.clear()
+            self.dockwidget.leWorkingLayer.setToolTip(u"")
+            # Actualizar estado de los controles de la Ui tras el cambio de estado.
+            self.actualizarUi()
 
     def datosMunicipios(self):
         """ Obtener la lista de municipios de Navarra """
@@ -391,7 +426,8 @@ class RrtnUtils:
         #uri = "srsname=EPSG:25830 typename=IDENA:CATAST_Pol_Municipio url=http://idena.navarra.es/ogc/wfs version=2.0.0 sql=SELECT CMUNICIPIO,MUNICIPIO FROM CATAST_Pol_Municipio"
 
         # De esta manera obtenemos únicamente los dos campos necesarios. Tampoco funciona con 1.1.0. Ver llamadas con Fiddler.
-        uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname=CMUNICIPIO,MUNICIPIO"
+        uri = "http://idena.navarra.es/ogc/wfs?typename=IDENA:CATAST_Pol_Municipio&version=1.0.0&request=GetFeature&service=WFS&propertyname={0},{1}".format(
+            IDENA_CMUNICIPIO_FIELD, IDENA_MUNICIPIO_FIELD)
         layer = QgsVectorLayer(uri, "data", "WFS")
 
         return list(layer.getFeatures())
@@ -437,13 +473,15 @@ class RrtnUtils:
         """
         Eliminar los elementos para la selección de parcelas (resaltado).
         """
-        if hasattr(self, "parcelasResaltadas"):
+
+        if self.parcelaLocalizada:
             canvas = self.iface.mapCanvas()
-
-            for r in self.parcelasResaltadas:
-                canvas.scene().removeItem(r)
-
-            del self.parcelasResaltadas[:]
+            resaltado = self.parcelaLocalizada[1]
+            canvas.scene().removeItem(resaltado)
+            self.dockwidget.leParcelaSel.clear()
+            self.parcelaLocalizada = None
+            # Actualizar estado de los controles de la Ui tras el cambio de estado.
+            self.actualizarUi()
 
     def onActionDraw(self):
         """ Captura del botón Refresh para borrar la lista de seleccionadas """
@@ -474,7 +512,7 @@ class RrtnUtils:
                 self.setWorkingLayer(compatibleLayers[index])
 
     def onBtnNewWorkingLayerClick(self):
-        """Crear una nueva capa de trabajo para la edición de parcelas"""
+        """ Crear una nueva capa de trabajo para la edición de parcelas """
 
         try:
             fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
@@ -532,13 +570,51 @@ class RrtnUtils:
         except Exception as error:
             self.iface.messageBar().pushMessage(error.message, QgsMessageBar.CRITICAL, 10)
 
+    def onBtnAddParcelaSelClick(self):
+        """ Añadir parcela seleccionada a la capa de trabajo """
+
+        parcelaFeature = self.parcelaLocalizada[0]
+
+        newFeat = QgsFeature()
+        # pendingFields: es un alias.
+        newFeat.setFields(self.workingLayer.fields())
+        newFeat.setGeometry(parcelaFeature.geometry())
+        newFeat[LOCALID_FIELDNAME] = "00{0}".format(parcelaFeature[IDENA_REFCAT_FIELD])[-9:]
+        newFeat[NAMESPACE_FIELDNAME] = CP_RRTN_NAMESPACE
+        newFeat[AREA_FIELDNAME] = newFeat.geometry().area()
+
+        if not self.workingLayer.isEditable():
+            self.workingLayer.startEditing()
+
+        # Agregar feature a la capa de trabajo (el segundo valor de retorno es una lista de las features añadidas).
+        addedFeat = self.workingLayer.dataProvider().addFeatures([newFeat])[1][0]
+        self.workingLayer.updateExtents()
+        self.limpiarSeleccion()
+        print(addedFeat.id())
+        self.workingLayer.setSelectedFeatures([addedFeat.id()])
+
     def setWorkingLayer(self, vlayer):
         """ Almacena una capa como capa de trabajo y lo refleja en la UI """
 
         self.workingLayer = vlayer
         fileName = vlayer.dataProvider().dataSourceUri().split('|')[0]
-        self.dockwidget.leWorkingLayer.setText(
-            u"{0} ({1})".format(vlayer.name(), fileName))
+        self.dockwidget.leWorkingLayer.setText(vlayer.name())
+        self.dockwidget.leWorkingLayer.setToolTip(fileName)
+
+        # Fijar etiquetado si no lo tiene configurado.
+        if not self.workingLayer.customProperty("labeling"):
+            self.workingLayer.setCustomProperty("labeling", u"pal")
+            self.workingLayer.setCustomProperty("labeling/fieldName", u"namespace + '.' + localid")
+            self.workingLayer.setCustomProperty("labeling/isExpression", True)
+            self.workingLayer.setCustomProperty("labeling/fontFamily", u"MS Shell Dlg 2")
+            self.workingLayer.setCustomProperty("labeling/fontSize", u"8.25")
+            self.workingLayer.setCustomProperty("labeling/placement", u"1")
+            self.workingLayer.setCustomProperty("labeling/enabled", True)
+            if self.workingLayer.featureCount() > 0:
+                self.iface.mapCanvas().refresh()
+
+        # Actualizar estado de los controles de la Ui tras el cambio de estado.
+        self.actualizarUi()
 
         if not self.workingLayer.isEditable():
             self.workingLayer.startEditing()
@@ -606,7 +682,14 @@ class RrtnUtils:
             # 63 -> Alpha usado por QgsHighlight.
             r.setFillColor(QColor(255, 0, 0, 63))
             r.setWidth(2)
-            self.parcelasResaltadas.append(r)
+            # Almacenar la info de resaltado para poder borrar.
+            # Almacenar la parcela localizada por si se quiere copiar a la capa de trabajo.
+            self.parcelaLocalizada = (parcelaFeature, r)
+            # Mostrar la parcela seleccionada y habilitar el botón de copiado.
+            self.dockwidget.leParcelaSel.setText(
+                "{0} ({1}), {2}, {3}".format(muniText, codMun, codPol, codPar))
+            # Actualizar estado de los controles de la Ui tras el cambio de estado.
+            self.actualizarUi()
 
             # Copiar la extensión de la parcela para poderla ampliar.
             parcelaExtent = QgsRectangle(parcelaGeom.boundingBox())
@@ -618,6 +701,12 @@ class RrtnUtils:
         except Exception as error:
             self.iface.messageBar().pushMessage(
                 error.message, QgsMessageBar.WARNING, 6)
+
+    def actualizarUi(self):
+        """ Actualiza la UI en función del estado del widget """
+
+        self.dockwidget.btnAddParcelaSel.setEnabled(
+            self.parcelaLocalizada != None and self.workingLayer != None)
 
     def onBtnInfoParcelaClick(self):
         """ Obtener información de una parcela en el RRTN """
@@ -658,12 +747,12 @@ class RrtnUtils:
             codMun, codPol, codPar)
 
         # URL general
-        # NOTA: utilizo WFS 1.1.0 ya que la URL que genera con el parámetro TYPENAMES (propio de 2.0.0) 
+        # NOTA: utilizo WFS 1.1.0 ya que la URL que genera con el parámetro TYPENAMES (propio de 2.0.0)
         # no se procesa bien por el servidor de IDENA (mientras no se arregle).
         uri_template = "srsname=" + RRTN_CRS + \
             " typename=IDENA:{0} url=http://idena.navarra.es/ogc/wfs version=1.1.0"
-        uri_template += " filter='CMUNICIPIO={0} AND POLIGONO={1} AND PARCELA={2}'".format(
-            codMun, codPol, codPar)
+        uri_template += " filter='{0}={1} AND {2}={3} AND {4}={5}'".format(
+            IDENA_CMUNICIPIO_FIELD, codMun, IDENA_POLIGONO_FIELD, codPol, IDENA_PARCELA_FIELD, codPar)
 
         # Búsqueda en parcelas urbanas
         uri = uri_template.format("CATAST_Pol_ParcelaUrba")
