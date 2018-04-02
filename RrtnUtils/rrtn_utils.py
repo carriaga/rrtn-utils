@@ -35,6 +35,13 @@ import resources
 from rrtn_utils_dockwidget import RrtnUtilsDockWidget
 import os.path
 
+# Definición de campos de la capa de trabajo.
+from rrtn_gml import LOCALID_FIELDNAME
+from rrtn_gml import LOCALID_FIELDLENGTH
+from rrtn_gml import NAMESPACE_FIELDNAME
+from rrtn_gml import NAMESPACE_FIELDLENGTH
+from rrtn_gml import AREA_FIELDNAME
+
 # CRS for the RRTN
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
@@ -42,12 +49,6 @@ RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
 
 # Nombre capa de trabajo.
 WORKING_LAYER_NAME = u"Parcelas actuación"
-# Nombres campo capa de trabajo.
-LOCALID_FIELDNAME = u'localId'
-LOCALID_FIELDLENGTH = 9
-NAMESPACE_FIELDNAME = u'namespace'
-NAMESPACE_FIELDLENGTH = 20
-AREA_FIELDNAME = u'area'
 
 # Valores de namespaces para features de la capa de trabajo.
 CP_RRTN_NAMESPACE = 'ES.RRTN.CP'
