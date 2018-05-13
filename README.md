@@ -2,14 +2,19 @@
 Utilidades de acceso al [Registro de la Riqueza Territorial de Navarra](https://catastro.navarra.es) (RRTN o Catastro de Navarra) en forma de plugin QGIS.
 
 ## TO DO list
+0. Controles:
+- Controlar el cambio de nombre de la capa de trabajo.
+- Que la superficie se mantenga...? no tiene mucho sentido salvo que se pueda poner como campo calculado. Al exportar comprobar. Actualizarla poniendo la capa como editable. En todo caso no es relevante de cara a una RGA.
+- Comprobaciones al exportar GML: campos, que no sea MULTI. Ver efecto de tener cambios en curso.
+- Visualización de parcelas seleccionadas con huecos.
+
 1. Comprobar que la proyección del mapa es la de Navarra (canvas.mapRenderer().destinationCrs().authid()):
 Al seleccionar capa de trabajo. Preguntar y poner.
 
 2. Plantear funcionamiento capa edición.
 2.1 Agregar parcelas a la capa de trabajo:
-- Agregar la parcela localizada en la búsqueda.
 - Importar GML CP RRTN.
-- Visualización: configurar etiquetado por referencia catastral y activar por defecto al añadir/seleccionar capa de trabajo.
+- Detectar parcelas compatibles: WMS, del WFS...
 
 2.2 Exportar a GML:
 - Posibilidad de poner editores con valores cerrados.
