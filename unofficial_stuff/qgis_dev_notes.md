@@ -44,12 +44,33 @@ Volver a invocar la instrucción anterior (pyrcc4).
 *make deploy*
 
 ### Método de variable de entorno
-Using the QGIS_PLUGINPATH environment variable you can tell QGIS to look in an additional location for plugins. This can be handy for development, allowing you to test your plugin without copying it to .qgis2/python/plugins.
+Using the QGIS_PLUGINPATH environment variable you can tell QGIS to look in an additional location for plugins. This can be handy for development, allowing you to test your plugin without copying it to .qgis2/python/plugins. Nota sobre este directorio en QGIS3: _While in QGIS 2, plugins were located in your home directory in the .qgis2/python/plugins folder. In QGIS 3, this folder is now in a specific QGIS profile. You can find this folder by going to Settings -> User profiles -> Open Active Profile folder. You will find python/plugins._.
 
 To use this method, set the QGIS_PLUGINPATH environment variable to point to your development directory before starting QGIS. When QGIS starts up, all the directories in QGIS_PLUGINPATH will be searched and those containing valid plugins will be added to the Plugin Manager.
 
 Esta opción me parece buena por ser ágil. Modifico el BAT de inicio de QGIS (qgis.bat) añadiendo la siguiente línea:  
 *set QGIS_PLUGINPATH=C:\SRC\RRTNUtils\rrtn-utils*
+
+En QGIS3 cambia un poco el BAT. Lo modifico para tener el BAT fuera de la instalación:
+
+```BAT
+@echo off
+REM call "%~dp0\o4w_env.bat" -> CAMBIO A PATH ABSOLUTO
+call "C:\Dev\QGIS\QGIS310\bin\o4w_env.bat"
+call qt5_env.bat
+call py3_env.bat
+@echo off
+path %OSGEO4W_ROOT%\apps\qgis-ltr\bin;%PATH%
+set QGIS_PREFIX_PATH=%OSGEO4W_ROOT:\=/%/apps/qgis-ltr
+set GDAL_FILENAME_IS_UTF8=YES
+rem Set VSI cache to be used as buffer, see #6448
+set VSI_CACHE=TRUE
+set VSI_CACHE_SIZE=1000000
+set QT_PLUGIN_PATH=%OSGEO4W_ROOT%\apps\qgis-ltr\qtplugins;%OSGEO4W_ROOT%\apps\qt5\plugins
+REM Plugins locales
+SET QGIS_PLUGINPATH=C:\SRC\RRTN\rrtn-utils
+start "QGIS" /B "%OSGEO4W_ROOT%\bin\qgis-ltr-bin.exe" %*
+```
 
 Aprendo a ver la configuración del entorno en QGIS: *Settings-> Options-> System*.
 

@@ -46,6 +46,8 @@ Casos de prueba:
 """
 
 #from qgis.core import QgsVectorLayer#, QgsFeature
+from builtins import range
+from builtins import object
 from datetime import datetime
 
 # Bloques para la construcción del GML de salida.
@@ -77,7 +79,7 @@ NAMESPACE_FIELDNAME = u'namespace'
 NAMESPACE_FIELDLENGTH = 20
 AREA_FIELDNAME = u'area'
 
-class RrtnGmlWriter:
+class RrtnGmlWriter(object):
     """ Clase para la generación de GML INSPIRE CP 4.0 compatibles con RRTN """
 
     def __init__(self, gmlOutputPath, coordScale):

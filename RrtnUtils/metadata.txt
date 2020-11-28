@@ -8,7 +8,7 @@
 
 [general]
 name=RRTN Utils
-qgisMinimumVersion=2.0
+qgisMinimumVersion=3.0
 description=Utilidades de acceso a los servicios del RRTN (Catastro de Navarra)
 version=0.2.1
 author=César Arriaga Egues
@@ -23,6 +23,9 @@ repository=https://github.com/carriaga/rrtn-utils/issues
 # Recommended items:
 
 changelog=
+    2020/11/28:
+    Migración a QGIS3.
+
     2018/05/13:
     Primera versión completa del generador de GML INSPIRE CP 4.0. Número de decimales de las coordenadas (scale) como parámetro.
 

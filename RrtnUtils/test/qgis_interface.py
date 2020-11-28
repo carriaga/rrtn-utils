@@ -22,7 +22,7 @@ __copyright__ = (
 )
 
 import logging
-from PyQt4.QtCore import QObject, pyqtSlot, pyqtSignal
+from qgis.PyQt.QtCore import QObject, pyqtSlot, pyqtSignal
 from qgis.core import QgsMapLayerRegistry
 from qgis.gui import QgsMapCanvasLayer
 LOGGER = logging.getLogger('QGIS')

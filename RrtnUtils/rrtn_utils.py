@@ -18,35 +18,46 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerRegistry, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, QGis
-from qgis.gui import QgsMessageBar, QgsRubberBand
+from __future__ import print_function
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
+from qgis.core import QgsCoordinateReferenceSystem, QgsProject, QgsMapLayer, QgsRasterLayer, QgsVectorLayer, QgsRectangle, QgsFeature, QgsVectorFileWriter, Qgis, QgsWkbTypes
+from qgis.gui import QgsRubberBand
 
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import time
 
-from PyQt4.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
-from PyQt4.QtGui import QAction, QIcon, QColor, QFileDialog, QMessageBox, QInputDialog, QRegExpValidator, QDialog, QPushButton
-from PyQt4.QtWebKit import QWebView
+from qgis.PyQt.QtCore import QSettings, QTranslator, qVersion, QCoreApplication, Qt, QVariant, QRegExp, QUrl
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QInputDialog, QDialog, QPushButton
+from qgis.PyQt.QtGui import QIcon, QColor, QRegExpValidator
+
+from qgis.PyQt.QtWebKitWidgets import QWebView
 
 # Initialize Qt resources from file resources.py
-import resources
+from . import resources
 
 # Import the code for the DockWidget
-from rrtn_utils_dockwidget import RrtnUtilsDockWidget
+from .rrtn_utils_dockwidget import RrtnUtilsDockWidget
 import os.path
 
+# @DEBUG
+# import traceback
+# traceback.print_exc() -> print stacktrace.
+
+
 # Definición de campos de la capa de trabajo.
-from rrtn_gml import LOCALID_FIELDNAME
-from rrtn_gml import LOCALID_FIELDLENGTH
-from rrtn_gml import NAMESPACE_FIELDNAME
-from rrtn_gml import NAMESPACE_FIELDLENGTH
-from rrtn_gml import AREA_FIELDNAME
+from .rrtn_gml import LOCALID_FIELDNAME
+from .rrtn_gml import LOCALID_FIELDLENGTH
+from .rrtn_gml import NAMESPACE_FIELDNAME
+from .rrtn_gml import NAMESPACE_FIELDLENGTH
+from .rrtn_gml import AREA_FIELDNAME
 
 # CRS for the RRTN
 RRTN_CRS = 'EPSG:25830'
 # Legend layer name
 RRTN_WMS_LAYER_NAME = u"RRTN @ WMS IDENA"
-
 # Nombre capa de trabajo.
 WORKING_LAYER_NAME = u"Parcelas actuación"
 
@@ -68,8 +79,7 @@ SETTING_WMS_KEY = 'rrtnUtils/wms'
 # Eliminar acentos (Python 2.7)
 import unicodedata
 
-
-class RrtnUtils:
+class RrtnUtils(object):
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
@@ -84,7 +94,7 @@ class RrtnUtils:
         self.iface = iface
 
         # Get plugin accesible for @DEBUG purposes.
-        iface.rrtnPlugin = self
+        # iface.rrtnPlugin = self
 
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
@@ -243,7 +253,7 @@ class RrtnUtils:
         btnDraw.triggered.disconnect(self.onActionDraw)
 
         # Capturar la descarga de capas.
-        QgsMapLayerRegistry.instance().layerWillBeRemoved.disconnect(
+        QgsProject.instance().layerWillBeRemoved.disconnect(
             self.onLayerWillBeRemoved)
 
         # remove this statement if dockwidget is to remain
@@ -266,8 +276,8 @@ class RrtnUtils:
             self.limpiarSeleccion()
 
         # Get plugin accesible for @DEBUG purposes.
-        if hasattr(self.iface, "rrtnPlugin"):
-            self.iface.rrtnPlugin = None
+        #if hasattr(self.iface, "rrtnPlugin"):
+        #   self.iface.rrtnPlugin = None
 
         # Limpirar atributo para almacenar la capa de trabajo.
         if hasattr(self, "workingLayer"):
@@ -344,7 +354,7 @@ class RrtnUtils:
             ).actions() if x.objectName() == 'mActionDraw'][0]
             btnDraw.triggered.connect(self.onActionDraw)
             # Capturar la descarga de capas.
-            QgsMapLayerRegistry.instance().layerWillBeRemoved.connect(self.onLayerWillBeRemoved)
+            QgsProject.instance().layerWillBeRemoved.connect(self.onLayerWillBeRemoved)
 
             # Cargar ComboBox de municipios si no está ya cargado.
             if self.dockwidget.cmbMunicipios.count() == 0:
@@ -353,7 +363,7 @@ class RrtnUtils:
                     # import unicodedata
                     # HorizontalPolicy: Ignored -> evitar que se expanda todo al ancho del texto de municipio más largo.
                     self.dockwidget.cmbMunicipios.addItem(
-                        unicodedata.normalize('NFD', feature[IDENA_MUNICIPIO_FIELD]).encode('ascii', 'ignore').upper(), feature[IDENA_CMUNICIPIO_FIELD])
+                        unicodedata.normalize('NFD', feature[IDENA_MUNICIPIO_FIELD]).encode('ascii', 'ignore').upper().decode("utf-8"), feature[IDENA_CMUNICIPIO_FIELD])
 
             # Poner validadores a los campos de códigos localizadores.
             # Enteros de 1 a 99
@@ -454,21 +464,21 @@ class RrtnUtils:
         }
 
         # Comprobar que no esté ya cargada.
-        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+        for layer in list(QgsProject.instance().mapLayers().values()):
             if layer.type() == QgsMapLayer.RasterLayer and params['url'] in layer.dataProvider().dataSourceUri():
                 return
 
-        uri = urllib.unquote(urllib.urlencode(params))
+        uri = urllib.parse.unquote(urllib.parse.urlencode(params))
 
         rlayer = QgsRasterLayer(uri, RRTN_WMS_LAYER_NAME, 'wms')
         if not rlayer.isValid():
 
             self.iface.messageBar().pushMessage(
-                u"Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", QgsMessageBar.CRITICAL, 10)
+                u"Ha ocurrido un error al cargar la capa WMS de Catastro de IDENA.", Qgis.Critical, 10)
         else:
             self.iface.messageBar().pushMessage(
-                u"Entorno para el acceso al RRTN inicializado.", QgsMessageBar.SUCCESS, 5)
-            QgsMapLayerRegistry.instance().addMapLayer(rlayer)
+                u"Entorno para el acceso al RRTN inicializado.", Qgis.Success, 5)
+            QgsProject.instance().addMapLayer(rlayer)
 
     def limpiarSeleccion(self):
         """
@@ -493,16 +503,17 @@ class RrtnUtils:
 
         # Obtener las capas compatibles de la ToC que no sean igual a la de trabajo.
         compatibleLayers = list()
-        for layer in QgsMapLayerRegistry.instance().mapLayers().values():
-            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QGis.Polygon:
+        for layer in list(QgsProject.instance().mapLayers().values()):
+            # QgsWkbTypes.Polygon: sólo geometrías poligonales simples.
+            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.Polygon:
                 # Ver si es compatible.
                 fields = list(layer.fields())
                 if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
                     compatibleLayers.append(layer)
 
         if not compatibleLayers:
-            self.iface.messageBar().pushMessage(
-                u"No hay cargada ninguna capa compatible para seleccionar.", QgsMessageBar.WARNING, 6)
+            self.iface. Bar().pushMessage(
+                u"No hay cargada ninguna capa compatible para seleccionar.", Qgis.Warning, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
             ).dataSourceUri().split('|')[0]) for layer in compatibleLayers]
@@ -517,7 +528,7 @@ class RrtnUtils:
 
         try:
             fileName = QFileDialog.getSaveFileName(self.dockwidget, u"Seleccionar ubicación archivo SHP de trabajo", os.path.expanduser(
-                self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")
+                self.userDir + "/parcelas_actuacion.shp"), u"Shapefiles (*.shp)")[0]
 
             if fileName == "":
                 return
@@ -527,7 +538,7 @@ class RrtnUtils:
 
             # Comprobar si está intentando sustituir a un archivo ya cargado.
             layersToRemove = list()
-            for layer in QgsMapLayerRegistry.instance().mapLayers().values():
+            for layer in list(QgsProject.instance().mapLayers().values()):
                 if fileName == layer.dataProvider().dataSourceUri().split('|')[0]:
                     layersToRemove.append(layer)
 
@@ -538,7 +549,7 @@ class RrtnUtils:
                 if reply == QMessageBox.Yes:
                     # Descargar las capas cargadas.
                     for layer in layersToRemove:
-                        QgsMapLayerRegistry.instance().removeMapLayer(layer)
+                        QgsProject.instance().removeMapLayer(layer)
                 else:
                     # Salir sin cargar.
                     return
@@ -551,7 +562,7 @@ class RrtnUtils:
 
             # Crear una archivo shape con la estructura de la plantilla. Nota: machaca el fichero existente.
             error = QgsVectorFileWriter.writeAsVectorFormat(
-                templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")
+                templateLayer, fileName, provider.encoding(), provider.crs(), "ESRI Shapefile")[0]
 
             if error != QgsVectorFileWriter.NoError:
                 raise Exception(
@@ -566,10 +577,10 @@ class RrtnUtils:
 
             # Conservar como nueva capa de trabajo y añadir a la ToC.
             self.setWorkingLayer(vlayer)
-            QgsMapLayerRegistry.instance().addMapLayer(self.workingLayer)
+            QgsProject.instance().addMapLayer(self.workingLayer)
 
         except Exception as error:
-            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.CRITICAL, 10)
+            self.iface.messageBar().pushMessage(str(error), Qgis.Critical, 10)
 
     def onBtnAddParcelaSelClick(self):
         """ Añadir parcela seleccionada a la capa de trabajo """
@@ -591,8 +602,9 @@ class RrtnUtils:
         addedFeat = self.workingLayer.dataProvider().addFeatures([newFeat])[1][0]
         self.workingLayer.updateExtents()
         self.limpiarSeleccion()
-        print(addedFeat.id())
-        self.workingLayer.setSelectedFeatures([addedFeat.id()])
+        # print(addedFeat.id()) # Se muestra en la consola de Python de QGIS.
+        #print()
+        self.workingLayer.selectByIds([addedFeat.id()])
 
     def setWorkingLayer(self, vlayer):
         """ Almacena una capa como capa de trabajo y lo refleja en la UI """
@@ -701,7 +713,7 @@ class RrtnUtils:
 
         except Exception as error:
             self.iface.messageBar().pushMessage(
-                error.message, QgsMessageBar.WARNING, 6)
+                str(error), Qgis.Warning, 6)
 
     def actualizarUi(self):
         """ Actualiza la UI en función del estado del widget """
@@ -740,7 +752,7 @@ class RrtnUtils:
                 self.browser.adjustSize()
 
         except Exception as error:
-            self.iface.messageBar().pushMessage(error.message, QgsMessageBar.WARNING, 6)
+            self.iface.messageBar().pushMessage(str(error), Qgis.Warning, 6)
 
     def cargarParcela(self, codMun, codPol, codPar, muniText):
         # Leyenda de la capa.

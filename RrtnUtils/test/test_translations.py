@@ -5,7 +5,8 @@
      it under the terms of the Eclipse Public License - v 1.0
 
 """
-from utilities import get_qgis_app
+from __future__ import absolute_import
+from .utilities import get_qgis_app
 
 __author__ = 'ismailsunni@yahoo.co.id'
 __date__ = '12/10/2011'
@@ -14,7 +15,7 @@ __copyright__ = ('Copyright 2012, Australia Indonesia Facility for '
 import unittest
 import os
 
-from PyQt4.QtCore import QCoreApplication, QTranslator
+from qgis.PyQt.QtCore import QCoreApplication, QTranslator
 
 QGIS_APP = get_qgis_app()
 
@@ -24,12 +25,12 @@ class SafeTranslationsTest(unittest.TestCase):
 
     def setUp(self):
         """Runs before each test."""
-        if 'LANG' in os.environ.iterkeys():
+        if 'LANG' in iter(os.environ.keys()):
             os.environ.__delitem__('LANG')
 
     def tearDown(self):
         """Runs after each test."""
-        if 'LANG' in os.environ.iterkeys():
+        if 'LANG' in iter(os.environ.keys()):
             os.environ.__delitem__('LANG')
 
     def test_qgis_translations(self):

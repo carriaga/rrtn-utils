@@ -5,6 +5,7 @@
      it under the terms of the Eclipse Public License - v 1.0
 
 """
+from __future__ import absolute_import
 
 __author__ = '-'
 __date__ = '2016-12-06'
@@ -12,11 +13,11 @@ __copyright__ = 'Copyright 2016, César Arriaga'
 
 import unittest
 
-from PyQt4.QtGui import QDockWidget
+from qgis.PyQt.QtWidgets import QDockWidget
 
 from rrtn_utils_dockwidget import RrtnUtilsDockWidget
 
-from utilities import get_qgis_app
+from .utilities import get_qgis_app
 
 QGIS_APP = get_qgis_app()
 
