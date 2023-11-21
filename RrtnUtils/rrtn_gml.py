@@ -113,8 +113,12 @@ class RrtnGmlWriter(object):
                 # {0}: namespace, {1}: localId, {2}: lowerCorner, {3}: upperCorner, {4}: area
                 gmlOutputFile.write(GML_CP_HEAD.format(feature[NAMESPACE_FIELDNAME], feature[LOCALID_FIELDNAME], lowerCorner, upperCorner, round(feature[AREA_FIELDNAME], 2)))
                 
-                # Obtener los anillos del polígono.
-                rings = feature.geometry().asPolygon()
+                # Obtener los anillos del polígono (MultiPolygon con un unico poligono).
+                geom = feature.geometry()
+                if not geom.isMultipart():
+                    rings = geom.asPolygon()
+                else:
+                    rings = geom.asMultiPolygon()[0]
                 
                 # Escribir anillo exterior (siempre hay). Según Simple Features debe ir Counter Clockwise.
                 ring = rings[0]
