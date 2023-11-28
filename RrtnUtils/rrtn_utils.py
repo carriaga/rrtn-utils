@@ -544,14 +544,14 @@ class RrtnUtils(object):
         compatibleLayers = list()
         for layer in list(QgsProject.instance().mapLayers().values()):
             # QgsWkbTypes.Polygon: sólo geometrías poligonales simples.
-            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.Polygon:
+            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.PolygonGeometry:
                 # Ver si es compatible.
                 fields = list(layer.fields())
                 if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
                     compatibleLayers.append(layer)
 
         if not compatibleLayers:
-            self.iface. Bar().pushMessage(
+            self.iface.messageBar().pushMessage(
                 u"No hay cargada ninguna capa compatible para seleccionar.", Qgis.Warning, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
@@ -560,7 +560,9 @@ class RrtnUtils(object):
                                               "Lista de capas compatibles:", layerNames, 0, False)
             if ok:
                 index = layerNames.index(item)
-                self.setWorkingLayer(compatibleLayers[index])
+                compatibleLayer = compatibleLayers[index]
+                self.userDir = os.path.dirname(compatibleLayer.dataProvider().dataSourceUri())
+                self.setWorkingLayer(compatibleLayer)
 
     def onBtnNewWorkingLayerClick(self):
         """ Crear una nueva capa de trabajo para la edición de parcelas """
