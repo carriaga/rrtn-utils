@@ -20,10 +20,11 @@
 """
 
 import os
+import unicodedata
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import pyqtSignal
-from qgis.PyQt.QtWidgets import QDockWidget
+from qgis.PyQt.QtCore import pyqtSignal, QStringListModel, Qt
+from qgis.PyQt.QtWidgets import QDockWidget, QCompleter
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'rrtn_utils_dockwidget_base.ui'))
@@ -47,3 +48,32 @@ class RrtnUtilsDockWidget(QDockWidget, FORM_CLASS):
         self.closingPlugin.emit()
         event.accept()
 
+def strip_accents(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+class RrtnUtilsCompleter(QCompleter):
+    
+    def splitPath(self, path):
+        return [strip_accents(path).lower()]
+    
+    def pathFromIndex(self, index):
+        return index.data()
+    
+class RrtnUtilsStringListModel(QStringListModel):
+
+    def __init__(self, *args, **kwargs):
+        super(RrtnUtilsStringListModel, self).__init__(*args, **kwargs)
+        self.setRolSinTildes(Qt.UserRole+10)
+
+    def data(self, index, role):
+        if role == self.rolSinTildes():
+            valor = super(RrtnUtilsStringListModel, self).data(index, Qt.DisplayRole)
+            return strip_accents(valor).lower()
+        else:
+            return super(RrtnUtilsStringListModel, self).data(index, role)
+
+    def setRolSinTildes(self, rol):
+        self.mrolSinTildes = rol
+
+    def rolSinTildes(self):
+        return self.mrolSinTildes

@@ -39,7 +39,8 @@ from qgis.PyQt.QtWebKitWidgets import QWebView
 from . import resources
 
 # Import the code for the DockWidget
-from .rrtn_utils_dockwidget import RrtnUtilsDockWidget
+from .rrtn_utils_dockwidget import RrtnUtilsDockWidget, RrtnUtilsCompleter, RrtnUtilsStringListModel
+from .rrtn_gml import RrtnGmlWriter
 import os.path
 
 # @DEBUG
@@ -243,6 +244,8 @@ class RrtnUtils(object):
             self.onBtnSelectWorkingLayerClick)
         self.dockwidget.btnAddParcelaSel.clicked.disconnect(
             self.onBtnAddParcelaSelClick)
+        self.dockwidget.btnExportGml.clicked.disconnect(
+            self.onBtnExportGmlClick)
         self.dockwidget.chkCrs.stateChanged.disconnect(
             self.onChkCrsStateChange)
         self.dockwidget.chkWms.stateChanged.disconnect(
@@ -313,10 +316,8 @@ class RrtnUtils(object):
                 self.dockwidget = RrtnUtilsDockWidget()
 
             # RECUPERAR SETTINGS USUARIO
-            crs = QSettings().value(SETTING_CRS_KEY) == None or QSettings().value(
-                SETTING_CRS_KEY) == "true"
-            wms = QSettings().value(SETTING_WMS_KEY) == None or QSettings().value(
-                SETTING_WMS_KEY) == "true"
+            crs = QSettings().value(SETTING_CRS_KEY, "true") == "true" # True si no esta definida o si vale "true"
+            wms = QSettings().value(SETTING_WMS_KEY, "true") == "true" # True si no esta definida o si vale "true"
 
             self.dockwidget.chkCrs.setChecked(crs)
             self.dockwidget.chkWms.setChecked(wms)
@@ -343,6 +344,8 @@ class RrtnUtils(object):
                 self.onBtnSelectWorkingLayerClick)
             self.dockwidget.btnAddParcelaSel.clicked.connect(
                 self.onBtnAddParcelaSelClick)
+            self.dockwidget.btnExportGml.clicked.connect(
+                self.onBtnExportGmlClick)
 
             self.dockwidget.chkCrs.stateChanged.connect(
                 self.onChkCrsStateChange)
@@ -358,12 +361,48 @@ class RrtnUtils(object):
 
             # Cargar ComboBox de municipios si no está ya cargado.
             if self.dockwidget.cmbMunicipios.count() == 0:
-                for feature in self.datosMunicipios():
-                    # Añadir nombres de municipios sin acentos y en mayúsculas.
-                    # import unicodedata
+                # Lista de municipios a mostrar al usuario
+                municipiosMostrar = self.datosMunicipios()
+                # Lista de municipios por la que ordenar municipiosMostrar, tiene una tupla con (nombre, número)
+                # Si es una facería: nombre = 'FACERIA' y número es un entero con el número de la facería
+                # Si no lo es: nombre = nombreMunicipio y número = -1
+                municipiosOrdenar = []
+                for feature in municipiosMostrar:
+                    # Transformar nombres de municipios sin acentos y en mayúsculas
+                    nombreMunicipio = (
+                        unicodedata.normalize("NFD", feature[IDENA_MUNICIPIO_FIELD])
+                        .encode("ascii", "ignore")
+                        .upper()
+                        .decode("utf-8")
+                    )
+                    # Si es una facería, extraer su numero
+                    if nombreMunicipio[0].isdigit() or nombreMunicipio.startswith("FACERIA"):
+                        regexp = QRegExp("[0-9]+")
+                        regexp.indexIn(nombreMunicipio)
+                        numeroFaceria = int(regexp.cap(0))
+                        municipiosOrdenar.append(("FACERIA", numeroFaceria))
+                    else:
+                        municipiosOrdenar.append((nombreMunicipio, -1))
+
+                municipiosMostrar = zip(municipiosOrdenar, municipiosMostrar)
+                # Ordenar alfabeticamente y si es faceria ordenar por su numero
+                municipiosMostrar = [x for _, x in sorted(municipiosMostrar, key=lambda e: (e[0][0], e[0][1]))]
+                municipiosConTilde = []
+                for feature in municipiosMostrar:
                     # HorizontalPolicy: Ignored -> evitar que se expanda todo al ancho del texto de municipio más largo.
+                    # nombreMunicipio = unicodedata.normalize('NFD', feature[IDENA_MUNICIPIO_FIELD]).encode('ascii', 'ignore').upper().decode("utf-8")
                     self.dockwidget.cmbMunicipios.addItem(
-                        unicodedata.normalize('NFD', feature[IDENA_MUNICIPIO_FIELD]).encode('ascii', 'ignore').upper().decode("utf-8"), feature[IDENA_CMUNICIPIO_FIELD])
+                        feature[IDENA_MUNICIPIO_FIELD], feature[IDENA_CMUNICIPIO_FIELD]
+                    )
+                    municipiosConTilde.append(feature[IDENA_MUNICIPIO_FIELD])
+
+                # El autocompletado del ComboBox se realiza sin tener en cuenta las tildes ni las mayúsculas.
+                completerSinTildes = RrtnUtilsCompleter()
+                modelo = RrtnUtilsStringListModel()
+                completerSinTildes.setModel(modelo)
+                completerSinTildes.setCompletionRole(modelo.rolSinTildes())
+                modelo.setStringList(municipiosConTilde)  # Lista con los municipios con tilde
+                self.dockwidget.cmbMunicipios.setCompleter(completerSinTildes)
 
             # Poner validadores a los campos de códigos localizadores.
             # Enteros de 1 a 99
@@ -505,14 +544,14 @@ class RrtnUtils(object):
         compatibleLayers = list()
         for layer in list(QgsProject.instance().mapLayers().values()):
             # QgsWkbTypes.Polygon: sólo geometrías poligonales simples.
-            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.Polygon:
+            if layer != self.workingLayer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.PolygonGeometry:
                 # Ver si es compatible.
                 fields = list(layer.fields())
                 if fields[0].name() == LOCALID_FIELDNAME and fields[0].type() == QVariant.String and fields[0].length() == LOCALID_FIELDLENGTH and fields[1].name() == NAMESPACE_FIELDNAME and fields[1].type() == QVariant.String and fields[1].length() == NAMESPACE_FIELDLENGTH and fields[2].name() == AREA_FIELDNAME and fields[2].type() == QVariant.Double:
                     compatibleLayers.append(layer)
 
         if not compatibleLayers:
-            self.iface. Bar().pushMessage(
+            self.iface.messageBar().pushMessage(
                 u"No hay cargada ninguna capa compatible para seleccionar.", Qgis.Warning, 6)
         else:
             layerNames = [u"{0} ({1})".format(layer.name(), layer.dataProvider(
@@ -521,7 +560,9 @@ class RrtnUtils(object):
                                               "Lista de capas compatibles:", layerNames, 0, False)
             if ok:
                 index = layerNames.index(item)
-                self.setWorkingLayer(compatibleLayers[index])
+                compatibleLayer = compatibleLayers[index]
+                self.userDir = os.path.dirname(compatibleLayer.dataProvider().dataSourceUri())
+                self.setWorkingLayer(compatibleLayer)
 
     def onBtnNewWorkingLayerClick(self):
         """ Crear una nueva capa de trabajo para la edición de parcelas """
@@ -606,6 +647,17 @@ class RrtnUtils(object):
         #print()
         self.workingLayer.selectByIds([addedFeat.id()])
 
+    def onBtnExportGmlClick(self):
+        """Exportar la capa de trabajo a GML"""
+        gmlOutputPath = self.userDir + "/parcelas_actuacion.gml"
+        coordScale = 3
+        gmlWriter = RrtnGmlWriter(gmlOutputPath, coordScale)
+        features = list(self.workingLayer.getFeatures())
+        gmlWriter.writeGml(features)
+        self.iface.messageBar().pushMessage(
+            "Capa de trabajo exportada a GML correctamente.", Qgis.Success, 5
+        )
+
     def setWorkingLayer(self, vlayer):
         """ Almacena una capa como capa de trabajo y lo refleja en la UI """
 
@@ -688,7 +740,7 @@ class RrtnUtils(object):
             # import QgsRubberBand
             # Eliminar resaltados anteriores.
             self.limpiarSeleccion()
-            r = QgsRubberBand(canvas, True)  # True = a polygon
+            r = QgsRubberBand(canvas, Qgis.GeometryType.Polygon)  # True = a polygon
             # Se le indica la capa de la que tomar el SRS.
             r.setToGeometry(parcelaGeom, selectedLayer)
             r.setColor(QColor(255, 0, 0))
@@ -740,7 +792,12 @@ class RrtnUtils(object):
             else:
                 wv = self.browser.findChildren(QWebView)[0]
 
-            uri_template = "https://catastro.navarra.es/ref_catastral/unidades.aspx?C={0}&PO={1}&PA={2}&lang=es"
+            capa, _ = self.cargarParcela(codMun, codPol, codPar, muniText)
+            sourceCapa = capa.source()
+            if "Urba" in sourceCapa:
+                uri_template = "https://catastro.navarra.es/ref_catastral/unidades.aspx?C={0}&PO={1}&PA={2}&lang=es"
+            elif "Rusti" in sourceCapa or "Mixta" in sourceCapa:
+                uri_template = "https://catastro.navarra.es/ref_catastral/subparcelas.aspx?C={0}&PO={1}&PA={2}&lang=es"
             uri = uri_template.format(codMun, codPol, codPar)
 
             # Cargar la página.

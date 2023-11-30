@@ -110,11 +110,16 @@ class RrtnGmlWriter(object):
                 lowerCorner = "{0} {1}".format(xmin, ymin)
                 upperCorner = "{0} {1}".format(xmax, ymax)
 
+                area = round(feature[AREA_FIELDNAME], 2) if type(feature[AREA_FIELDNAME]) == float else 0.0
                 # {0}: namespace, {1}: localId, {2}: lowerCorner, {3}: upperCorner, {4}: area
-                gmlOutputFile.write(GML_CP_HEAD.format(feature[NAMESPACE_FIELDNAME], feature[LOCALID_FIELDNAME], lowerCorner, upperCorner, round(feature[AREA_FIELDNAME], 2)))
+                gmlOutputFile.write(GML_CP_HEAD.format(feature[NAMESPACE_FIELDNAME], feature[LOCALID_FIELDNAME], lowerCorner, upperCorner, area))
                 
-                # Obtener los anillos del polígono.
-                rings = feature.geometry().asPolygon()
+                # Obtener los anillos del polígono (MultiPolygon con un unico poligono).
+                geom = feature.geometry()
+                if not geom.isMultipart():
+                    rings = geom.asPolygon()
+                else:
+                    rings = geom.asMultiPolygon()[0]
                 
                 # Escribir anillo exterior (siempre hay). Según Simple Features debe ir Counter Clockwise.
                 ring = rings[0]
@@ -140,7 +145,10 @@ class RrtnGmlWriter(object):
                         gmlOutputFile.write(GML_INT_RING_FOOT)
 
                 # Escribir el final de la CP.
-                label = int(feature[LOCALID_FIELDNAME][-4:])
+                try:
+                    label = int(feature[LOCALID_FIELDNAME][-4:])
+                except ValueError:
+                    label = feature[LOCALID_FIELDNAME]
                 # {0}: namespace, {1}: localId, {2}: label
                 gmlOutputFile.write(GML_CP_FOOT.format(feature[NAMESPACE_FIELDNAME], feature[LOCALID_FIELDNAME], label))
 
